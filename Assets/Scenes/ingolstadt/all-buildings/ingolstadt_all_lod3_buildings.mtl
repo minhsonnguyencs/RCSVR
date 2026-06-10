@@ -1,0 +1,1531 @@
+newmtl ground
+Ka 0.10 0.10 0.10
+Kd 0.4000 0.4000 0.4000
+Ks 0.00 0.00 0.00
+
+newmtl wall
+Ka 0.10 0.10 0.10
+Kd 0.8200 0.7600 0.6500
+Ks 0.00 0.00 0.00
+
+newmtl roof
+Ka 0.10 0.10 0.10
+Kd 0.6800 0.2800 0.2000
+Ks 0.00 0.00 0.00
+
+newmtl installation
+Ka 0.10 0.10 0.10
+Kd 0.5500 0.5500 0.5500
+Ks 0.00 0.00 0.00
+
+newmtl color_0.957_0.643_0.376_1.00
+Ka 0.10 0.10 0.10
+Kd 0.9569 0.6431 0.3765
+Ks 0.00 0.00 0.00
+
+newmtl color_0.502_0.502_0.502_0.50
+Ka 0.10 0.10 0.10
+Kd 0.5020 0.5020 0.5020
+Ks 0.00 0.00 0.00
+d 0.5000
+illum 9
+
+newmtl color_0.753_0.753_0.753_1.00
+Ka 0.10 0.10 0.10
+Kd 0.7529 0.7529 0.7529
+Ks 0.00 0.00 0.00
+
+newmtl color_0.392_0.584_0.929_0.50
+Ka 0.10 0.10 0.10
+Kd 0.3922 0.5843 0.9294
+Ks 0.00 0.00 0.00
+d 0.5000
+illum 9
+
+newmtl color_1.000_0.698_0.600_1.00
+Ka 0.10 0.10 0.10
+Kd 1.0000 0.6980 0.6000
+Ks 0.00 0.00 0.00
+
+newmtl color_1.000_1.000_1.000_1.00
+Ka 0.10 0.10 0.10
+Kd 1.0000 1.0000 1.0000
+Ks 0.00 0.00 0.00
+
+newmtl color_0.573_0.408_0.341_1.00
+Ka 0.10 0.10 0.10
+Kd 0.5725 0.4078 0.3412
+Ks 0.00 0.00 0.00
+
+newmtl color_0.667_0.667_0.667_1.00
+Ka 0.10 0.10 0.10
+Kd 0.6667 0.6667 0.6667
+Ks 0.00 0.00 0.00
+
+newmtl color_0.557_0.557_0.557_1.00
+Ka 0.10 0.10 0.10
+Kd 0.5569 0.5569 0.5569
+Ks 0.00 0.00 0.00
+
+newmtl color_0.776_0.776_0.776_1.00
+Ka 0.10 0.10 0.10
+Kd 0.7765 0.7765 0.7765
+Ks 0.00 0.00 0.00
+
+newmtl color_0.600_0.149_0.000_1.00
+Ka 0.10 0.10 0.10
+Kd 0.6000 0.1490 0.0000
+Ks 0.00 0.00 0.00
+
+newmtl color_0.824_0.706_0.549_1.00
+Ka 0.10 0.10 0.10
+Kd 0.8235 0.7059 0.5490
+Ks 0.00 0.00 0.00
+
+newmtl color_0.200_0.400_0.000_1.00
+Ka 0.10 0.10 0.10
+Kd 0.2000 0.4000 0.0000
+Ks 0.00 0.00 0.00
+
+newmtl color_0.412_0.412_0.412_1.00
+Ka 0.10 0.10 0.10
+Kd 0.4118 0.4118 0.4118
+Ks 0.00 0.00 0.00
+
+newmtl color_1.000_0.980_0.980_1.00
+Ka 0.10 0.10 0.10
+Kd 1.0000 0.9804 0.9804
+Ks 0.00 0.00 0.00
+
+newmtl color_0.337_0.337_0.337_1.00
+Ka 0.10 0.10 0.10
+Kd 0.3373 0.3373 0.3373
+Ks 0.00 0.00 0.00
+
+newmtl color_1.000_0.894_0.769_1.00
+Ka 0.10 0.10 0.10
+Kd 1.0000 0.8941 0.7686
+Ks 0.00 0.00 0.00
+
+newmtl color_1.000_0.961_0.933_1.00
+Ka 0.10 0.10 0.10
+Kd 1.0000 0.9608 0.9333
+Ks 0.00 0.00 0.00
+
+newmtl color_0.980_0.941_0.902_1.00
+Ka 0.10 0.10 0.10
+Kd 0.9804 0.9412 0.9020
+Ks 0.00 0.00 0.00
+
+newmtl color_0.663_0.663_0.663_1.00
+Ka 0.10 0.10 0.10
+Kd 0.6627 0.6627 0.6627
+Ks 0.00 0.00 0.00
+
+newmtl color_0.941_0.973_1.000_1.00
+Ka 0.10 0.10 0.10
+Kd 0.9412 0.9725 1.0000
+Ks 0.00 0.00 0.00
+
+newmtl color_0.961_1.000_0.980_1.00
+Ka 0.10 0.10 0.10
+Kd 0.9608 1.0000 0.9804
+Ks 0.00 0.00 0.00
+
+newmtl color_0.267_0.267_0.267_1.00
+Ka 0.10 0.10 0.10
+Kd 0.2667 0.2667 0.2667
+Ks 0.00 0.00 0.00
+
+newmtl color_0.227_0.227_0.227_1.00
+Ka 0.10 0.10 0.10
+Kd 0.2275 0.2275 0.2275
+Ks 0.00 0.00 0.00
+
+newmtl color_0.886_0.886_0.886_1.00
+Ka 0.10 0.10 0.10
+Kd 0.8863 0.8863 0.8863
+Ks 0.00 0.00 0.00
+
+newmtl color_1.000_0.949_0.800_1.00
+Ka 0.10 0.10 0.10
+Kd 1.0000 0.9490 0.8000
+Ks 0.00 0.00 0.00
+
+newmtl color_0.690_0.769_0.871_1.00
+Ka 0.10 0.10 0.10
+Kd 0.6902 0.7686 0.8706
+Ks 0.00 0.00 0.00
+
+newmtl color_0.914_0.588_0.478_1.00
+Ka 0.10 0.10 0.10
+Kd 0.9137 0.5882 0.4784
+Ks 0.00 0.00 0.00
+
+newmtl color_1.000_0.898_0.800_1.00
+Ka 0.10 0.10 0.10
+Kd 1.0000 0.8980 0.8000
+Ks 0.00 0.00 0.00
+
+newmtl color_1.000_0.498_0.314_1.00
+Ka 0.10 0.10 0.10
+Kd 1.0000 0.4980 0.3137
+Ks 0.00 0.00 0.00
+
+newmtl color_1.000_0.898_0.600_1.00
+Ka 0.10 0.10 0.10
+Kd 1.0000 0.8980 0.6000
+Ks 0.00 0.00 0.00
+
+newmtl color_0.878_1.000_1.000_1.00
+Ka 0.10 0.10 0.10
+Kd 0.8784 1.0000 1.0000
+Ks 0.00 0.00 0.00
+
+newmtl color_0.800_0.800_1.000_1.00
+Ka 0.10 0.10 0.10
+Kd 0.8000 0.8000 1.0000
+Ks 0.00 0.00 0.00
+
+newmtl color_0.545_0.271_0.075_1.00
+Ka 0.10 0.10 0.10
+Kd 0.5451 0.2706 0.0745
+Ks 0.00 0.00 0.00
+
+newmtl color_0.282_0.820_0.800_0.50
+Ka 0.10 0.10 0.10
+Kd 0.2824 0.8196 0.8000
+Ks 0.00 0.00 0.00
+d 0.5000
+illum 9
+
+newmtl color_0.600_0.000_0.000_1.00
+Ka 0.10 0.10 0.10
+Kd 0.6000 0.0000 0.0000
+Ks 0.00 0.00 0.00
+
+newmtl color_0.961_0.961_0.961_1.00
+Ka 0.10 0.10 0.10
+Kd 0.9608 0.9608 0.9608
+Ks 0.00 0.00 0.00
+
+newmtl color_0.800_1.000_0.800_1.00
+Ka 0.10 0.10 0.10
+Kd 0.8000 1.0000 0.8000
+Ks 0.00 0.00 0.00
+
+newmtl color_0.447_0.447_0.447_1.00
+Ka 0.10 0.10 0.10
+Kd 0.4471 0.4471 0.4471
+Ks 0.00 0.00 0.00
+
+newmtl color_0.863_0.863_0.863_1.00
+Ka 0.10 0.10 0.10
+Kd 0.8627 0.8627 0.8627
+Ks 0.00 0.00 0.00
+
+newmtl color_1.000_0.894_0.882_1.00
+Ka 0.10 0.10 0.10
+Kd 1.0000 0.8941 0.8824
+Ks 0.00 0.00 0.00
+
+newmtl color_1.000_0.855_0.725_1.00
+Ka 0.10 0.10 0.10
+Kd 1.0000 0.8549 0.7255
+Ks 0.00 0.00 0.00
+
+newmtl color_0.686_0.933_0.933_1.00
+Ka 0.10 0.10 0.10
+Kd 0.6863 0.9333 0.9333
+Ks 0.00 0.00 0.00
+
+newmtl color_0.980_0.502_0.447_1.00
+Ka 0.10 0.10 0.10
+Kd 0.9804 0.5020 0.4471
+Ks 0.00 0.00 0.00
+
+newmtl color_0.502_0.502_0.502_1.00
+Ka 0.10 0.10 0.10
+Kd 0.5020 0.5020 0.5020
+Ks 0.00 0.00 0.00
+
+newmtl color_0.871_0.722_0.529_1.00
+Ka 0.10 0.10 0.10
+Kd 0.8706 0.7216 0.5294
+Ks 0.00 0.00 0.00
+
+newmtl color_0.318_0.318_0.318_1.00
+Ka 0.10 0.10 0.10
+Kd 0.3176 0.3176 0.3176
+Ks 0.00 0.00 0.00
+
+newmtl color_0.800_1.000_1.000_1.00
+Ka 0.10 0.10 0.10
+Kd 0.8000 1.0000 1.0000
+Ks 0.00 0.00 0.00
+
+newmtl color_0.898_1.000_0.800_1.00
+Ka 0.10 0.10 0.10
+Kd 0.8980 1.0000 0.8000
+Ks 0.00 0.00 0.00
+
+newmtl Roofing_Shingles_GAF_Estates
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Shingles_GAF_Estates.jpg
+
+newmtl Granite_02
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Granite 02.jpg
+
+newmtl Blinds_Cellular_White
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Blinds_Cellular_White.jpg
+
+newmtl Blinds_Wood_White
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Blinds_Wood_White.jpg
+
+newmtl Cladding_Stucco_White
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Cladding_Stucco_White.jpg
+
+newmtl Wood_Cherry_Original
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Wood_Cherry_Original.jpg
+
+newmtl Translucent_Glass_Sky_Reflection_
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Translucent_Glass_Sky_Reflection_.jpg
+
+newmtl Polished_Concrete_New
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Polished Concrete New.jpg
+
+newmtl Field_Rectangle_Tile
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Field Rectangle Tile.jpg
+
+newmtl Steel_Brushed_Stainless
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Steel Brushed Stainless.jpg
+
+newmtl _Window_Covering_01_
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/_Window Covering 01_.jpg
+
+newmtl Steel_Brushed_Stainless00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Steel Brushed Stainless00.jpg
+
+newmtl Steel_Brushed_Stainless01
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Steel Brushed Stainless01.jpg
+
+newmtl Wood_Lumber_ButtJoined
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Wood_Lumber_ButtJoined.jpg
+
+newmtl Wood_01
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Wood 01.jpg
+
+newmtl Brick_Colored_Blue
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Brick_Colored_Blue.jpg
+
+newmtl _Window_Covering_01_00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/_Window Covering 01_00.jpg
+
+newmtl Roofing_Tile_Spanish
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish.jpg
+
+newmtl Blacktop_Old_01
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Blacktop Old 01.jpg
+
+newmtl _Window_Covering_01_01
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/_Window Covering 01_01.jpg
+
+newmtl _Wood_Veneer_01_
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/_Wood Veneer 01_.jpg
+
+newmtl Aluminum
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Aluminum.jpg
+
+newmtl Steel_Brushed_Stainless02
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Steel Brushed Stainless02.jpg
+
+newmtl Roofing_Shingles_GAF_Estates00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Shingles_GAF_Estates00.jpg
+
+newmtl Brick_Common_Bond
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Brick_Common_Bond.jpg
+
+newmtl Roofing_Tile_Spanish00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish00.jpg
+
+newmtl Polished_Concrete_New00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Polished Concrete New00.jpg
+
+newmtl Granite_0200
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Granite 0200.jpg
+
+newmtl Translucent_Glass_Sky_Reflection_00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Translucent_Glass_Sky_Reflection_00.jpg
+
+newmtl Brick_Common_Bond00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Brick_Common_Bond00.jpg
+
+newmtl Roofing_Tile_Spanish01
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish01.jpg
+
+newmtl Metal_Rusted
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Metal_Rusted.jpg
+
+newmtl Roofing_Tile_Spanish02
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish02.jpg
+
+newmtl _Window_Covering_01_02
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/_Window Covering 01_02.jpg
+
+newmtl _Wood_Veneer_01__zMr9BHKLXEqAZq8oxVxz
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/_Wood Veneer 01__zMr9BHKLXEqAZq8oxVxz.jpg
+
+newmtl Roofing_Scalloped_Ornate
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing Scalloped Ornate.jpg
+
+newmtl Polished_Concrete_Old
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Polished Concrete Old.jpg
+
+newmtl Metal_Seamed
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Metal_Seamed.jpg
+
+newmtl Roofing_Shingles_GAF_Estates01
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Shingles_GAF_Estates01.jpg
+
+newmtl Granite_0201
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Granite 0201.jpg
+
+newmtl Metal_Silver
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Metal Silver.jpg
+
+newmtl Brick_Basket_Two
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Brick_Basket_Two.jpg
+
+newmtl Polished_Concrete_Old00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Polished Concrete Old00.jpg
+
+newmtl Wood_02
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Wood 02.jpg
+
+newmtl Polished_Concrete_Old01
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Polished Concrete Old01.jpg
+
+newmtl Wood_0100
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Wood 0100.jpg
+
+newmtl Blacktop_Old_0100
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Blacktop Old 0100.jpg
+
+newmtl Wood_0101
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Wood 0101.jpg
+
+newmtl Field_Square_Tile
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Field Square Tile.jpg
+
+newmtl Roofing_Tile_Spanish_J8JzmrXaRGDBdXMMIeh0
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish_J8JzmrXaRGDBdXMMIeh0.jpg
+
+newmtl Translucent_Glass_Sky_Reflection_01
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Translucent_Glass_Sky_Reflection_01.jpg
+
+newmtl Wood_0102
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Wood 0102.jpg
+
+newmtl Polished_Concrete_New01
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Polished Concrete New01.jpg
+
+newmtl Roofing_Tile_Spanish03
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish03.jpg
+
+newmtl Roofing_Shingles_Asphalt
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Shingles_Asphalt.jpg
+
+newmtl Roofing_Tile_Spanish04
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish04.jpg
+
+newmtl Polished_Concrete_Old02
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Polished Concrete Old02.jpg
+
+newmtl Wood_Cherry_Original00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Wood_Cherry_Original00.jpg
+
+newmtl Wood_Bamboo_Medium
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Wood_Bamboo_Medium.jpg
+
+newmtl Polished_Concrete_New02
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Polished Concrete New02.jpg
+
+newmtl Roofing_Tile_Spanish05
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish05.jpg
+
+newmtl Roofing_Tile_Spanish06
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish06.jpg
+
+newmtl Wood_0103
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Wood 0103.jpg
+
+newmtl Translucent_Glass_Sky_Reflection_02
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Translucent_Glass_Sky_Reflection_02.jpg
+
+newmtl Brick_Antique
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Brick_Antique.jpg
+
+newmtl Blacktop_Old_0101
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Blacktop Old 0101.jpg
+
+newmtl Roofing_Shingles_Asphalt00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Shingles_Asphalt00.jpg
+
+newmtl Polished_Concrete_New03
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Polished Concrete New03.jpg
+
+newmtl Roofing_Tile_Spanish07
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish07.jpg
+
+newmtl Roofing_Tile_Spanish08
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish08.jpg
+
+newmtl Metal_Aluminum_Anodized
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Metal_Aluminum_Anodized.jpg
+
+newmtl Concrete_Form_4x8
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Concrete_Form_4x8.jpg
+
+newmtl Roofing_Tile_Spanish09
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish09.jpg
+
+newmtl Roofing_Tile_Spanish10
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish10.jpg
+
+newmtl Brick_Common_Bond01
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Brick_Common_Bond01.jpg
+
+newmtl Roofing_Tile_Spanish11
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish11.jpg
+
+newmtl _Wood_Veneer_01_00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/_Wood Veneer 01_00.jpg
+
+newmtl Wood_0104
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Wood 0104.jpg
+
+newmtl _Translucent_Glass_Gray__2
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/_Translucent_Glass_Gray_#2.jpg
+
+newmtl Wood_0200
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Wood 0200.jpg
+
+newmtl Roofing_Shingles_Multi
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Shingles_Multi.jpg
+
+newmtl Metal_Aluminum_Anodized00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Metal_Aluminum_Anodized00.jpg
+
+newmtl Metal_Aluminum_Anodized01
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Metal_Aluminum_Anodized01.jpg
+
+newmtl Steel_Brushed_Stainless03
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Steel Brushed Stainless03.jpg
+
+newmtl Metal_Rusted00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Metal_Rusted00.jpg
+
+newmtl Aluminum00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Aluminum00.jpg
+
+newmtl Roofing_Shingles_Asphalt01
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Shingles_Asphalt01.jpg
+
+newmtl Brick_Rough_Dark
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Brick_Rough_Dark.jpg
+
+newmtl _Translucent_Glass_Sky_Reflection_2
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/_Translucent Glass Sky Reflection_2.jpg
+
+newmtl Roofing_Tile_Spanish12
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish12.jpg
+
+newmtl Roofing_Metal_Standing_Seam_Red
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Metal_Standing_Seam_Red.jpg
+
+newmtl Steel_Brushed_Stainless04
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Steel Brushed Stainless04.jpg
+
+newmtl Aluminum01
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Aluminum01.jpg
+
+newmtl Metal_Aluminum_Anodized02
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Metal_Aluminum_Anodized02.jpg
+
+newmtl Blacktop_Old_02
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Blacktop Old 02.jpg
+
+newmtl Roofing_Tile_Spanish13
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish13.jpg
+
+newmtl Aluminum02
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Aluminum02.jpg
+
+newmtl Polished_Concrete_New04
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Polished Concrete New04.jpg
+
+newmtl Roofing_Shingles_Multi00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Shingles_Multi00.jpg
+
+newmtl Translucent_Glass_Sky_Reflection_03
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Translucent_Glass_Sky_Reflection_03.jpg
+
+newmtl Blinds_Weave
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Blinds_Weave.jpg
+
+newmtl _Translucent_Glass_Gray__3
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/_Translucent_Glass_Gray_#3.jpg
+
+newmtl Roofing_Tile_Spanish14
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish14.jpg
+
+newmtl Roofing_Tile_Spanish15
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish15.jpg
+
+newmtl Concrete_Aggregate_Smoke
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Concrete_Aggregate_Smoke.jpg
+
+newmtl _Translucent_Glass_Gray__1
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/_Translucent_Glass_Gray_#1.jpg
+
+newmtl Roofing_Shingles_Asphalt02
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Shingles_Asphalt02.jpg
+
+newmtl Roofing_Tile_Spanish_vDPL8JIi8wlLtWdhw6pe
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish_vDPL8JIi8wlLtWdhw6pe.jpg
+
+newmtl Roofing_Shingles_Asphalt03
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Shingles_Asphalt03.jpg
+
+newmtl Translucent_Glass_Block_Dark
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Translucent_Glass_Block_Dark.jpg
+
+newmtl Roofing_Shingles_Variable
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Shingles_Variable.jpg
+
+newmtl Blinds_Roman_Hobbled_Blue
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Blinds_Roman_Hobbled_Blue.jpg
+
+newmtl Wood_Floor
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Wood_Floor.jpg
+
+newmtl Metal_Corrogated_Shiny
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Metal_Corrogated_Shiny.jpg
+
+newmtl Cladding_Stucco_White00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Cladding_Stucco_White00.jpg
+
+newmtl Roofing_Scalloped_Ornate00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing Scalloped Ornate00.jpg
+
+newmtl Wood_0201
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Wood 0201.jpg
+
+newmtl Metal_Steel_Textured
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Metal_Steel_Textured.jpg
+
+newmtl Metal_Aluminum_Anodized03
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Metal_Aluminum_Anodized03.jpg
+
+newmtl Metal_Aluminum_Anodized04
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Metal_Aluminum_Anodized04.jpg
+
+newmtl Steel_Brushed_Stainless05
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Steel Brushed Stainless05.jpg
+
+newmtl Wood_0105
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Wood 0105.jpg
+
+newmtl Wood_0106
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Wood 0106.jpg
+
+newmtl Roofing_Tile_Spanish16
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish16.jpg
+
+newmtl Wood_0107
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Wood 0107.jpg
+
+newmtl _Translucent_Glass_Sky_Reflection_200
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/_Translucent Glass Sky Reflection_200.jpg
+
+newmtl Aluminum03
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Aluminum03.jpg
+
+newmtl White_Tile_Black_Accent_
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/White Tile Black Accent .jpg
+
+newmtl Roofing_Tile_Spanish17
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish17.jpg
+
+newmtl Wood_0108
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Wood 0108.jpg
+
+newmtl Aluminum04
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Aluminum04.jpg
+
+newmtl Metal_Aluminum_Anodized05
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Metal_Aluminum_Anodized05.jpg
+
+newmtl Quartz_Light_Grey
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Quartz Light Grey.jpg
+
+newmtl _Wood_Veneer_01__1
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/_Wood Veneer 01_#1.jpg
+
+newmtl _Translucent_Glass_Gray__4
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/_Translucent_Glass_Gray_#4.jpg
+
+newmtl Wood_0109
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Wood 0109.jpg
+
+newmtl Metal_Rough
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Metal_Rough.jpg
+
+newmtl Roofing_Tile_Spanish18
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish18.jpg
+
+newmtl Wood_0110
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Wood 0110.jpg
+
+newmtl Roofing_Metal_Standing_Seam_Red00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Metal_Standing_Seam_Red00.jpg
+
+newmtl Roofing_Tile_Spanish19
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish19.jpg
+
+newmtl Roofing_Shingles_Variable00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Shingles_Variable00.jpg
+
+newmtl Roofing_Slate_Dark
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Slate_Dark.jpg
+
+newmtl Wood_Floor_Parquet
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Wood_Floor_Parquet.jpg
+
+newmtl Steel_Brushed_Stainless06
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Steel Brushed Stainless06.jpg
+
+newmtl Textile_Leaves_Green
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Textile_Leaves_Green.jpg
+
+newmtl _Translucent_Glass_Gray_
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/_Translucent_Glass_Gray_.jpg
+
+newmtl Roofing_Tile_Spanish20
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish20.jpg
+
+newmtl _Metal_Rough_
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/_Metal Rough_.jpg
+
+newmtl _Roofing_Tile_Spanish_
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/_Roofing Tile Spanish_.jpg
+
+newmtl Translucent_Glass_Tinted
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Translucent_Glass_Tinted.jpg
+
+newmtl Wood_Floor00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Wood_Floor00.jpg
+
+newmtl Blinds_Cellular_White00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Blinds_Cellular_White00.jpg
+
+newmtl Roofing_Metal_Standing_Seam_Red01
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Metal_Standing_Seam_Red01.jpg
+
+newmtl Roofing_Tile_Spanish21
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish21.jpg
+
+newmtl Roofing_Tile_Spanish22
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish22.jpg
+
+newmtl Steel_Brushed_Stainless07
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Steel Brushed Stainless07.jpg
+
+newmtl Carrera_Marble
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Carrera Marble.jpg
+
+newmtl _Wood_Veneer_01__mz9svK19X7FphzC7PBpK
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/_Wood Veneer 01__mz9svK19X7FphzC7PBpK.jpg
+
+newmtl Metal_Corrogated_Shiny00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Metal_Corrogated_Shiny00.jpg
+
+newmtl Polished_Concrete_New05
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Polished Concrete New05.jpg
+
+newmtl Sketchy_Shingles_Shakes
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Sketchy_Shingles_Shakes.jpg
+
+newmtl Granite_0202
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Granite 0202.jpg
+
+newmtl Roofing_Tile_Spanish23
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish23.jpg
+
+newmtl Polished_Concrete_Old03
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Polished Concrete Old03.jpg
+
+newmtl Wood_0202
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Wood 0202.jpg
+
+newmtl Translucent_Glass_Sky_Reflection_04
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Translucent_Glass_Sky_Reflection_04.jpg
+
+newmtl Roofing_Tile_Spanish24
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish24.jpg
+
+newmtl Steel_Brushed_Stainless08
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Steel Brushed Stainless08.jpg
+
+newmtl Roofing_Tile_Spanish25
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish25.jpg
+
+newmtl Roofing_Tile_Spanish_DTWQDz84N3IegxMNcRhf
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish_DTWQDz84N3IegxMNcRhf.jpg
+
+newmtl Wood_0111
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Wood 0111.jpg
+
+newmtl Metal_Silver00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Metal Silver00.jpg
+
+newmtl Wood_Bamboo_Medium00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Wood_Bamboo_Medium00.jpg
+
+newmtl Roofing_Shingles_GAF_Estates02
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Shingles_GAF_Estates02.jpg
+
+newmtl Blacktop_New
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Blacktop New.jpg
+
+newmtl Roofing_Shingles_GAF_Estates03
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Shingles_GAF_Estates03.jpg
+
+newmtl Stone_Vein_Gray
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Stone_Vein_Gray.jpg
+
+newmtl Granite_0203
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Granite 0203.jpg
+
+newmtl Wood_0112
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Wood 0112.jpg
+
+newmtl Brick_Rough_Dark00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Brick_Rough_Dark00.jpg
+
+newmtl Steel_Brushed_Stainless09
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Steel Brushed Stainless09.jpg
+
+newmtl Roofing_Shingles_Asphalt04
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Shingles_Asphalt04.jpg
+
+newmtl Metal_Rough00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Metal_Rough00.jpg
+
+newmtl Roofing_Tile_Spanish26
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish26.jpg
+
+newmtl Concrete_Aggregate_Smoke00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Concrete_Aggregate_Smoke00.jpg
+
+newmtl Roofing_Scalloped_Ornate01
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing Scalloped Ornate01.jpg
+
+newmtl Stone_Vein_Gray00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Stone_Vein_Gray00.jpg
+
+newmtl _Translucent_Glass_Gray_00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/_Translucent_Glass_Gray_00.jpg
+
+newmtl _Translucent_Glass_Sky_Reflection_
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/_Translucent Glass Sky Reflection_.jpg
+
+newmtl Metal_Aluminum_Anodized06
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Metal_Aluminum_Anodized06.jpg
+
+newmtl Roofing_Tile_Spanish27
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish27.jpg
+
+newmtl _Translucent_Glass_Gray_01
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/_Translucent_Glass_Gray_01.jpg
+
+newmtl _Wood_Veneer_01__0Bc27weOYInVzYmvrgHs
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/_Wood Veneer 01__0Bc27weOYInVzYmvrgHs.jpg
+
+newmtl _Translucent_Glass_Gray__6kLIdlHTm1bVtBNLrHuu
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/_Translucent_Glass_Gray__6kLIdlHTm1bVtBNLrHuu.jpg
+
+newmtl _Translucent_Glass_Sky_Reflection_2_WYJ1hpsZxDznr024bPsT
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/_Translucent Glass Sky Reflection_2_WYJ1hpsZxDznr024bPsT.jpg
+
+newmtl _Wood_Veneer_01__QW79jshxT5Pc3mtOyFdo
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/_Wood Veneer 01__QW79jshxT5Pc3mtOyFdo.jpg
+
+newmtl Stone_Marble
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Stone_Marble.jpg
+
+newmtl Roofing_Tile_Spanish28
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish28.jpg
+
+newmtl Metal_Rough01
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Metal_Rough01.jpg
+
+newmtl Metal_Silver01
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Metal Silver01.jpg
+
+newmtl Steel_Brushed_Stainless10
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Steel Brushed Stainless10.jpg
+
+newmtl Metal_Silver02
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Metal Silver02.jpg
+
+newmtl Roofing_Tile_Spanish29
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish29.jpg
+
+newmtl _Translucent_Glass_Sky_Reflection_2_TIP6Ypl9SqE7wL73A21J
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/_Translucent Glass Sky Reflection_2_TIP6Ypl9SqE7wL73A21J.jpg
+
+newmtl _Translucent_Glass_Gray__5
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/_Translucent_Glass_Gray_#5.jpg
+
+newmtl Blinds_Roman_Hobbled_Blue00
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Blinds_Roman_Hobbled_Blue00.jpg
+
+newmtl Roofing_Tile_Spanish30
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Roofing_Tile_Spanish30.jpg
+
+newmtl Metal_Steel_Textured_White
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Metal_Steel_Textured_White.jpg
+
+newmtl Wood_0113
+Ka 0.10 0.10 0.10
+Kd 1.00 1.00 1.00
+Ks 0.00 0.00 0.00
+map_Kd textures/Wood 0113.jpg
+
