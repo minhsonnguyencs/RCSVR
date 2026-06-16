@@ -28,6 +28,34 @@
                     "isPartOfComposite": false
                 }
             ]
+        },
+        {
+            "name": "Locomotion",
+            "id": "d4e5f6a7-b8c9-0123-def0-123456789abc",
+            "actions": [
+                {
+                    "name": "Run",
+                    "type": "Button",
+                    "id": "e5f6a7b8-c9d0-1234-ef01-23456789abcd",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "f6a7b8c9-d0e1-2345-f012-3456789abcde",
+                    "path": "<XRController>{LeftHand}/thumbstickClicked",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Run",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
         }
     ],
     "controlSchemes": []

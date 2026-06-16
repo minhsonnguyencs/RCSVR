@@ -1,0 +1,83 @@
+newmtl lane_curb
+Ka 0.15 0.15 0.15
+Kd 0.550 0.540 0.520
+Ks 0.05 0.05 0.05
+Ns 20.0
+
+newmtl frn_tree_trunk
+Ka 0.20 0.15 0.08
+Kd 0.380 0.270 0.160
+Ks 0.00 0.00 0.00
+Ns 10.0
+
+newmtl frn_tree_canopy
+Ka 0.05 0.15 0.05
+Kd 0.220 0.520 0.180
+Ks 0.05 0.10 0.05
+Ns 15.0
+
+newmtl frn_streetlamp
+Ka 0.20 0.20 0.20
+Kd 0.450 0.450 0.450
+Ks 0.20 0.20 0.20
+Ns 40.0
+
+newmtl frn_bench
+Ka 0.15 0.10 0.05
+Kd 0.420 0.300 0.180
+Ks 0.05 0.05 0.05
+Ns 15.0
+
+newmtl frn_busstop_frame
+Ka 0.15 0.15 0.15
+Kd 0.500 0.500 0.500
+Ks 0.30 0.30 0.30
+Ns 60.0
+
+newmtl frn_busstop_glass
+Ka 0.60 0.80 0.90
+Kd 0.700 0.850 0.950
+Ks 0.50 0.50 0.50
+Ns 80.0
+d 0.4
+newmtl frn_crosswalk
+Ka 0.70 0.70 0.70
+Kd 0.900 0.900 0.900
+Ks 0.10 0.10 0.10
+Ns 20.0
+
+newmtl frn_lanedivider
+Ka 0.70 0.65 0.05
+Kd 0.920 0.840 0.080
+Ks 0.05 0.05 0.00
+Ns 15.0
+
+newmtl lane_curb
+Ka 0.15 0.15 0.15
+Kd 0.550 0.540 0.520
+Ks 0.05 0.05 0.05
+Ns 20.0
+
+newmtl frn_trafficlight
+Ka 0.05 0.05 0.05
+Kd 0.120 0.120 0.120
+Ks 0.20 0.20 0.20
+Ns 50.0
+
+newmtl frn_light_red
+Ka 0.80 0.05 0.05
+Kd 0.950 0.100 0.100
+Ks 0.40 0.05 0.05
+Ns 60.0
+
+newmtl frn_light_yellow
+Ka 0.80 0.65 0.05
+Kd 0.950 0.780 0.080
+Ks 0.40 0.30 0.05
+Ns 60.0
+
+newmtl frn_light_green
+Ka 0.05 0.60 0.10
+Kd 0.100 0.750 0.150
+Ks 0.05 0.40 0.10
+Ns 60.0

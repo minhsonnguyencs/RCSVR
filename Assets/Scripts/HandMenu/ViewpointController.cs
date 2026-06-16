@@ -5,21 +5,6 @@ using UnityEngine.XR;
 
 namespace Unity.VRTemplate
 {
-    /// <summary>
-    /// Teleports the XR Origin to preset viewpoints or a free-flight bird-eye position.
-    ///
-    /// Bird-eye controls:
-    ///   Left  thumbstick   — horizontal movement (camera-relative, XZ plane)
-    ///   Right thumbstick Y — altitude (up / down)
-    ///
-    /// Why LateUpdate Y-lock?
-    ///   XRI 3.x GravityProvider applies gravity every frame via transform.position,
-    ///   even when CharacterController is disabled.  LateUpdate runs after all Update()
-    ///   calls (including locomotion providers), so enforcing position.y there wins the
-    ///   race without touching any XRI internals.
-    ///   m_BirdEyeTargetY is maintained only through explicit input — never read back
-    ///   from the transform — so gravity drift cannot accumulate across frames.
-    /// </summary>
     public class ViewpointController : MonoBehaviour
     {
         [Tooltip("The XR Origin (XR Rig) root transform.")]
@@ -34,11 +19,8 @@ namespace Unity.VRTemplate
         [Header("Bird-Eye")]
         [Tooltip("Starting height (metres) when entering bird-eye view.")]
         [SerializeField] float m_BirdEyeHeight = 150f;
-        [Tooltip("XZ centre of the city model.")]
+        [Tooltip("XZ entry point for bird-eye view.")]
         [SerializeField] Vector3 m_SceneCenter = Vector3.zero;
-        [Tooltip("XZ offset from scene centre for the bird-eye entry position. " +
-                 "Player lands here and faces back toward scene centre. Default X=100 puts the player 100 m to the side.")]
-        [SerializeField] Vector3 m_BirdEyeEntryOffset = new Vector3(100f, 0f, 0f);
 
         [Header("Bird-Eye Flight")]
         [Tooltip("Horizontal fly speed in m/s (left thumbstick).")]
@@ -51,11 +33,11 @@ namespace Unity.VRTemplate
         [Header("Transition")]
         [SerializeField] float m_TransitionDuration = 0.8f;
 
-        // ── State ──────────────────────────────────────────────────────────
+        // -- State --------------------------------------------------
         public bool InBirdEye => m_InBirdEye;
 
         bool                m_InBirdEye;
-        float               m_BirdEyeTargetY;   // authoritative altitude — never read from transform
+        float               m_BirdEyeTargetY;  
         Vector3             m_SavedPosition;
         Coroutine           m_ActiveMove;
 
@@ -66,25 +48,13 @@ namespace Unity.VRTemplate
         InputDevice m_LeftController;
         InputDevice m_RightController;
 
-        readonly List<InputDevice> m_DeviceBuf = new(1);
-
-        // ── Unity callbacks ────────────────────────────────────────────────
+        // -- Unity callbacks --------------------------------------------------
 
         void Awake()
         {
             if (m_XROriginTransform == null) return;
             m_CC = m_XROriginTransform.GetComponent<CharacterController>();
             m_Rb = m_XROriginTransform.GetComponent<Rigidbody>();
-            m_CameraTransform = Camera.main?.transform;
-        }
-
-        void OnEnable()
-        {
-            // Guard: if the app was paused/killed during a teleport the coroutine
-            // stops mid-flight and SuspendPhysics() is never matched by ResumePhysics().
-            // Re-enable physics whenever we wake unless we are actively in bird-eye mode.
-            if (!m_InBirdEye)
-                ResumePhysics();
         }
 
         void Update()
@@ -110,6 +80,7 @@ namespace Unity.VRTemplate
 
             if (dx == 0f && dz == 0f && dy == 0f) return;
 
+            if (m_CameraTransform == null) m_CameraTransform = Camera.main?.transform;
             Vector3 forward = m_CameraTransform != null
                 ? Vector3.ProjectOnPlane(m_CameraTransform.forward, Vector3.up).normalized
                 : Vector3.forward;
@@ -140,7 +111,7 @@ namespace Unity.VRTemplate
             m_XROriginTransform.position = pos;
         }
 
-        // ── Public API ─────────────────────────────────────────────────────
+        // -- Public API --------------------------------------------------
 
         public void SetViewpoint1() => TeleportTo(m_Viewpoint1);
         public void SetViewpoint2() => TeleportTo(m_Viewpoint2);
@@ -152,7 +123,7 @@ namespace Unity.VRTemplate
             else             EnterBirdEye();
         }
 
-        // ── Internal ───────────────────────────────────────────────────────
+        // -- Internal --------------------------------------------------
 
         void TeleportTo(Transform target)
         {
@@ -173,22 +144,7 @@ namespace Unity.VRTemplate
         {
             if (m_XROriginTransform == null) return;
             m_SavedPosition = m_XROriginTransform.position;
-
-            // Entry position: scene centre + XZ offset, at bird-eye altitude.
-            var birdPos = new Vector3(
-                m_SceneCenter.x + m_BirdEyeEntryOffset.x,
-                m_BirdEyeHeight,
-                m_SceneCenter.z + m_BirdEyeEntryOffset.z);
-
-            // Yaw-only snap: face from the bird-eye entry position toward scene centre.
-            Vector3 toCenter = new Vector3(m_SceneCenter.x - birdPos.x, 0f,
-                                           m_SceneCenter.z - birdPos.z);
-            if (toCenter.sqrMagnitude > 0.01f)
-            {
-                float yaw = Mathf.Atan2(toCenter.x, toCenter.z) * Mathf.Rad2Deg;
-                m_XROriginTransform.rotation = Quaternion.Euler(0f, yaw, 0f);
-            }
-
+            var birdPos = new Vector3(m_SceneCenter.x, m_BirdEyeHeight, m_SceneCenter.z);
             BeginMove(birdPos, groundLevel: false);
             m_InBirdEye = true;
         }
@@ -241,7 +197,7 @@ namespace Unity.VRTemplate
             m_ActiveMove = null;
         }
 
-        // ── Helpers ────────────────────────────────────────────────────────
+        // -- Helpers --------------------------------------------------
 
         void SuspendPhysics()
         {
@@ -259,15 +215,17 @@ namespace Unity.VRTemplate
         {
             if (!m_LeftController.isValid)
             {
+                var buf = new List<InputDevice>();
                 InputDevices.GetDevicesWithCharacteristics(
-                    InputDeviceCharacteristics.Left | InputDeviceCharacteristics.Controller, m_DeviceBuf);
-                if (m_DeviceBuf.Count > 0) m_LeftController = m_DeviceBuf[0];
+                    InputDeviceCharacteristics.Left | InputDeviceCharacteristics.Controller, buf);
+                if (buf.Count > 0) m_LeftController = buf[0];
             }
             if (!m_RightController.isValid)
             {
+                var buf = new List<InputDevice>();
                 InputDevices.GetDevicesWithCharacteristics(
-                    InputDeviceCharacteristics.Right | InputDeviceCharacteristics.Controller, m_DeviceBuf);
-                if (m_DeviceBuf.Count > 0) m_RightController = m_DeviceBuf[0];
+                    InputDeviceCharacteristics.Right | InputDeviceCharacteristics.Controller, buf);
+                if (buf.Count > 0) m_RightController = buf[0];
             }
         }
 

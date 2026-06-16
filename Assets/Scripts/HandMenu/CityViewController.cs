@@ -27,6 +27,16 @@ namespace Unity.VRTemplate
         [SerializeField] GameObject m_150_LOD2;
         [SerializeField] GameObject m_150_LOD3;
 
+        [Header("250 Buildings")]
+        [SerializeField] GameObject m_250_LOD1;
+        [SerializeField] GameObject m_250_LOD2;
+        [SerializeField] GameObject m_250_LOD3;
+
+        [Header("All Buildings")]
+        [SerializeField] GameObject m_All_LOD1;
+        [SerializeField] GameObject m_All_LOD2;
+        [SerializeField] GameObject m_All_LOD3;
+
         // --- LOD ------------------------------------------------------------
 
         [Header("LOD Buttons (optional)")]
@@ -39,6 +49,8 @@ namespace Unity.VRTemplate
         [SerializeField] Button m_Btn20;
         [SerializeField] Button m_Btn50;
         [SerializeField] Button m_Btn150;
+        [SerializeField] Button m_Btn250;
+        [SerializeField] Button m_BtnAll;
 
         [Header("Colors")]
         [SerializeField] Color m_ActiveColor   = new Color(0.18f, 0.56f, 1.00f);
@@ -54,12 +66,14 @@ namespace Unity.VRTemplate
 
         void Start()
         {
-            m_Objects = new GameObject[4, 3]
+            m_Objects = new GameObject[6, 3]
             {
                 { m_10_LOD1,  m_10_LOD2,  m_10_LOD3  },
                 { m_20_LOD1,  m_20_LOD2,  m_20_LOD3  },
                 { m_50_LOD1,  m_50_LOD2,  m_50_LOD3  },
                 { m_150_LOD1, m_150_LOD2, m_150_LOD3 },
+                { m_250_LOD1, m_250_LOD2, m_250_LOD3 },
+                { m_All_LOD1, m_All_LOD2, m_All_LOD3 },
             };
 
             Apply();
@@ -79,15 +93,17 @@ namespace Unity.VRTemplate
         public void SetComplexity20()  { m_Complexity = 20;  Apply(); HighlightComplexity(20);  }
         public void SetComplexity50()  { m_Complexity = 50;  Apply(); HighlightComplexity(50);  }
         public void SetComplexity150() { m_Complexity = 150; Apply(); HighlightComplexity(150); }
+        public void SetComplexity250() { m_Complexity = 250; Apply(); HighlightComplexity(250); }
+        public void SetComplexityAll() { m_Complexity = -1;  Apply(); HighlightComplexity(-1);  }
 
-        // ── Internal ──────────────────────────────────────────────────────────
+        // --- Internal ------------------------------------------------------------
 
         void Apply()
         {
             int ci = ComplexityIndex(m_Complexity);
             int li = m_LOD - 1; // LOD1→0, LOD2→1, LOD3→2
 
-            for (int c = 0; c < 4; c++)
+            for (int c = 0; c < 6; c++)
                 for (int l = 0; l < 3; l++)
                     if (m_Objects[c, l] != null)
                         m_Objects[c, l].SetActive(c == ci && l == li);
@@ -99,6 +115,8 @@ namespace Unity.VRTemplate
             20  => 1,
             50  => 2,
             150 => 3,
+            250 => 4,
+            -1  => 5,
             _   => 0,
         };
 
@@ -115,6 +133,8 @@ namespace Unity.VRTemplate
             Highlight(m_Btn20,  count == 20);
             Highlight(m_Btn50,  count == 50);
             Highlight(m_Btn150, count == 150);
+            Highlight(m_Btn250, count == 250);
+            Highlight(m_BtnAll, count == -1);
         }
 
         void Highlight(Button btn, bool active)
