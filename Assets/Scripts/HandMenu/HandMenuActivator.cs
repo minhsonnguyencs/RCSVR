@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.XR.Hands;
 
 namespace Unity.VRTemplate
@@ -21,14 +22,40 @@ namespace Unity.VRTemplate
         [Tooltip("Lerp speed for menu position tracking.")]
         [SerializeField] float m_TrackingSpeed = 18f;
 
+        [Header("Button Toggle")]
+        [Tooltip("Input action for Y-button toggle (HandMenu/Toggle in New Actions).")]
+        [SerializeField] InputActionReference m_ToggleAction;
+
+        [Tooltip("Left controller transform to attach the menu to when toggled via button.")]
+        [SerializeField] Transform m_LeftController;
+
         static readonly List<XRHandSubsystem> s_Subsystems = new();
         XRHandSubsystem m_HandSubsystem;
         Transform m_CameraTransform;
         bool m_IsVisible;
+        bool m_ButtonToggled;
 
         void OnEnable()
         {
             AcquireHandSubsystem();
+            if (m_ToggleAction != null)
+            {
+                m_ToggleAction.action.performed += OnTogglePressed;
+                m_ToggleAction.action.Enable();
+            }
+        }
+
+        void OnDisable()
+        {
+            if (m_ToggleAction != null)
+                m_ToggleAction.action.performed -= OnTogglePressed;
+        }
+
+        void OnTogglePressed(InputAction.CallbackContext ctx)
+        {
+            m_ButtonToggled = !m_ButtonToggled;
+            if (!m_ButtonToggled)
+                SetVisible(false, immediate: true);
         }
 
         void Start()
@@ -40,6 +67,30 @@ namespace Unity.VRTemplate
         void Update()
         {
             if (m_MenuPanel == null) return;
+
+            // Lazily acquire camera (XR camera may not be ready at Start).
+            if (m_CameraTransform == null)
+                m_CameraTransform = Camera.main?.transform;
+
+            // Y-button toggled: attach menu to left controller.
+            if (m_ButtonToggled)
+            {
+                SetVisible(true);
+                Transform anchor = m_LeftController != null ? m_LeftController : m_CameraTransform;
+                if (anchor != null)
+                {
+                    Vector3 btnPos = anchor.position + anchor.rotation * m_WristOffset;
+                    m_MenuPanel.transform.position = Vector3.Lerp(
+                        m_MenuPanel.transform.position, btnPos, Time.deltaTime * m_TrackingSpeed);
+                    if (m_CameraTransform != null)
+                    {
+                        Vector3 btnToCam = m_CameraTransform.position - m_MenuPanel.transform.position;
+                        if (btnToCam.sqrMagnitude > 0.0001f)
+                            m_MenuPanel.transform.rotation = Quaternion.LookRotation(-btnToCam);
+                    }
+                }
+                return;
+            }
 
             // Lazily acquire subsystem (may not be running at OnEnable on device).
             if (m_HandSubsystem == null || !m_HandSubsystem.running)
@@ -61,7 +112,7 @@ namespace Unity.VRTemplate
             bool gotWrist = leftHand.GetJoint(XRHandJointID.Wrist).TryGetPose(out var wristPose);
             bool gotPalm  = leftHand.GetJoint(XRHandJointID.Palm).TryGetPose(out var palmPose);
 
-            if (!gotWrist || !gotPalm)
+            if (!gotWrist || !gotPalm || m_CameraTransform == null)
             {
                 SetVisible(false);
                 return;

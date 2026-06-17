@@ -33,6 +33,10 @@ namespace Unity.VRTemplate
         [Header("Transition")]
         [SerializeField] float m_TransitionDuration = 0.8f;
 
+        [Header("Scene Objects")]
+        [Tooltip("Ground object to hide in bird-eye view.")]
+        [SerializeField] GameObject m_CityGround;
+
         // -- State --------------------------------------------------
         public bool InBirdEye => m_InBirdEye;
 
@@ -135,6 +139,7 @@ namespace Unity.VRTemplate
             }
 
             m_InBirdEye = false;
+            if (m_CityGround != null) m_CityGround.SetActive(true);
             // Yaw-only snap — instant, not lerped, to avoid spinning-world artefact.
             m_XROriginTransform.rotation = Quaternion.Euler(0f, target.eulerAngles.y, 0f);
             BeginMove(target.position, groundLevel: true);
@@ -147,12 +152,14 @@ namespace Unity.VRTemplate
             var birdPos = new Vector3(m_SceneCenter.x, m_BirdEyeHeight, m_SceneCenter.z);
             BeginMove(birdPos, groundLevel: false);
             m_InBirdEye = true;
+            if (m_CityGround != null) m_CityGround.SetActive(false);
         }
 
         void ExitBirdEye()
         {
             m_InBirdEye = false;   // set before BeginMove so LateUpdate stops enforcing Y
             BeginMove(m_SavedPosition, groundLevel: true);
+            if (m_CityGround != null) m_CityGround.SetActive(true);
         }
 
         void BeginMove(Vector3 targetPos, bool groundLevel)
