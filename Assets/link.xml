@@ -1,6 +1,0 @@
-<linker>
-    <!-- Prevent IL2CPP from stripping XR Hands subsystem types -->
-    <assembly fullname="Unity.XR.Hands" preserve="all"/>
-    <!-- Prevent stripping of Input System types used via reflection/delegates -->
-    <assembly fullname="Unity.InputSystem" preserve="all"/>
-</linker>
