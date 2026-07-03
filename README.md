@@ -1,3 +1,19 @@
+# Updates quick guide:
+
+1. Road generation
+
+Right now, you can see the roads in the Ingolstadt scene. To render or clear the roads, press three dots next to Road Graph Renderer in the Inspector (right side menu), and choose the option there. There are two settings that you can also change: lane width and height offset above the ground plane.
+
+2. Road rendering
+
+The roads are rendered with a simple LineRenderer for debug purposes. This is why they always face the camera. For later, we need to change the rendering procedure to meshes, but I haven't done it yet. I was checking that the data parses correctly first.
+
+3. Camera
+
+I added a camera for debugging, so that we don't always need the headset. It is in the Ingolstadt scene, just named Camera. You can just press play and use normal controls: WASD, and Shift for speed. You can change the speed in the Inspector
+
+
+
 # Ingolstadt City VR
 
 A photorealistic 3D visualization of Ingolstadt city running on **Meta Quest 3** standalone,
