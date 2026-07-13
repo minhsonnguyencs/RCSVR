@@ -56,6 +56,13 @@ namespace Unity.VRTemplate
         [SerializeField] Color m_ActiveColor   = new Color(0.18f, 0.56f, 1.00f);
         [SerializeField] Color m_InactiveColor = new Color(0.13f, 0.13f, 0.16f);
 
+        // --- PERFORMANCE MONITORING ADDITIONS ----------------------------
+        [Header("Performance Profiling")]
+        [Tooltip("Optional Text component to show FPS live on your VR hand menu")]
+        [SerializeField] Text m_FpsCounterText;
+
+        private float m_FpsDeltaTime = 0.0f;
+
         // --- Initial State ------------------------------------------------------------
 
         int m_LOD        = 1;
@@ -81,6 +88,18 @@ namespace Unity.VRTemplate
             HighlightComplexity(m_Complexity);
         }
 
+        void Update()
+        {
+            // Continuously calculate frame rendering times
+            m_FpsDeltaTime += (Time.unscaledDeltaTime - m_FpsDeltaTime) * 0.1f;
+
+            if (m_FpsCounterText != null)
+            {
+                float fps = 1.0f / m_FpsDeltaTime;
+                m_FpsCounterText.text = $"FPS: {Mathf.RoundToInt(fps)} | LOD: {m_LOD} | Count: {(m_Complexity == -1 ? "All" : m_Complexity)}";
+            }
+        }
+
         // --- Btn LOD -------------------------------------------------------------------
 
         public void SetLOD1() { m_LOD = 1; Apply(); HighlightLOD(1); }
@@ -96,7 +115,7 @@ namespace Unity.VRTemplate
         public void SetComplexity250() { m_Complexity = 250; Apply(); HighlightComplexity(250); }
         public void SetComplexityAll() { m_Complexity = -1;  Apply(); HighlightComplexity(-1);  }
 
-        // --- Internal ------------------------------------------------------------
+        // --- Internal Rendering Toggle ------------------------------------------------------------
 
         void Apply()
         {
@@ -107,6 +126,10 @@ namespace Unity.VRTemplate
                 for (int l = 0; l < 3; l++)
                     if (m_Objects[c, l] != null)
                         m_Objects[c, l].SetActive(c == ci && l == li);
+
+            // Print the rendering changes straight to the Unity log for profiling
+            float currentFps = 1.0f / m_FpsDeltaTime;
+            Debug.Log($"[PERF LOG] Configuration Changed! Active Complexity: {(m_Complexity == -1 ? "All" : m_Complexity)} buildings at LOD {m_LOD}. Immediate Baseline FPS: {Mathf.RoundToInt(currentFps)}");
         }
 
         static int ComplexityIndex(int count) => count switch
