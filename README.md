@@ -118,11 +118,11 @@ Open with **Y** on the left controller. The panel has three rows of buttons:
 
 ### Data sources
 
-| File | Description                     |
-|---|---------------------------------|
-| `data/Ingolstadt.city.json` | CityJSON source (LOD1)          |
-| `data/ingolstadt/Ingolstadt.gml` | CityGML buildings (LOD2 + LOD3) |
-| `data/ingolstadt/lod3-road-space-models/` | Road network and furniture      |
+| File | Description                            |
+|---|----------------------------------------|
+| `data/Ingolstadt.city.json` | CityJSON source (LOD3)                 |
+| `data/ingolstadt/Ingolstadt.gml` | CityGML buildings (LOD1 + LOD2 + LOD3) |
+| `data/ingolstadt/lod3-road-space-models/` | Road network and furniture             |
 
 ---
 

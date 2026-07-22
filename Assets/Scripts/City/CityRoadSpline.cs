@@ -15,9 +15,9 @@ public class CityRoadSpline : MonoBehaviour
     [Tooltip("Elevation above ground. Prevents Z-fighting with CityGroundSurface.")]
     public float yOffset = 0.005f;
 
-    [Tooltip("Mesh samples per metre of spline length. Higher = smoother curves.")]
-    [Range(1, 10)]
-    public int samplesPerMetre = 3;
+    [Tooltip("Mesh samples per metre of spline length. Higher = smoother curves, more vertices.")]
+    [Range(0.05f, 10f)]
+    public float samplesPerMetre = 3f;
 
     [Header("Material")]
     public Material roadMaterial;
@@ -58,6 +58,7 @@ public class CityRoadSpline : MonoBehaviour
 
         if (_mesh == null) _mesh = new Mesh { name = "CityRoadSpline" };
         _mesh.Clear();
+        _mesh.indexFormat = IndexFormat.UInt32;
         _mesh.CombineMeshes(combines.ToArray(), true, false);
         _mesh.RecalculateNormals();
         _mesh.RecalculateBounds();
@@ -88,15 +89,19 @@ public class CityRoadSpline : MonoBehaviour
         float uvAlong = 0f;         // accumulated road-length UV
 
         Vector3 prevLeft = Vector3.zero;
+        float3 prevTangentXZ = new float3(1f, 0f, 0f);
 
         for (int i = 0; i <= samples; i++)
         {
             float t = (float)i / samples;
             SplineUtility.Evaluate(spline, t,
                 out float3 pos, out float3 tangent, out float3 up);
-
-            // Flatten tangent to XZ plane so the road stays level
-            float3 tangentXZ = math.normalize(new float3(tangent.x, 0f, tangent.z));
+                
+            float3 rawTangentXZ = new float3(tangent.x, 0f, tangent.z);
+            float3 tangentXZ = math.lengthsq(rawTangentXZ) > 1e-10f
+                ? math.normalize(rawTangentXZ)
+                : prevTangentXZ;
+            prevTangentXZ = tangentXZ;
 
             // Right vector: cross( up=(0,1,0), tangentXZ )
             float3 right = math.normalize(math.cross(new float3(0f, 1f, 0f), tangentXZ));
