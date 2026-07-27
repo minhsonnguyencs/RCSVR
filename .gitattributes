@@ -5,7 +5,6 @@
 #
 # This template is maintained from the gitattributes/gitattributes repository
 # and distributed under MIT License.
-
 # Define macros (only works in top-level gitattributes files)
 [attr]lfs               filter=lfs diff=lfs merge=lfs -text
 [attr]unity-json        eol=lf linguist-language=json
@@ -150,3 +149,4 @@ Packages/packages-lock.json linguist-generated
 # Exceptions for .asset files such as lightning pre-baking
 LightingData.asset     binary
 Assets/Scenes/Ingolstadt.unity filter=lfs diff=lfs merge=lfs -text
+Assets/Scenes/ingolstadt/city-road/CityRoad_Splines.prefab filter=lfs diff=lfs merge=lfs -text
