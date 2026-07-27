@@ -16,7 +16,7 @@ namespace Unity.VRTemplate
         void Awake()
         {
             if (m_MoveProvider == null)
-                m_MoveProvider = FindFirstObjectByType<DynamicMoveProvider>();
+                m_MoveProvider = FindAnyObjectByType<DynamicMoveProvider>();
 
             if (m_MoveProvider != null)
                 m_WalkSpeed = m_MoveProvider.moveSpeed;

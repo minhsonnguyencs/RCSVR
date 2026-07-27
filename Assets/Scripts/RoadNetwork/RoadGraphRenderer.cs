@@ -96,7 +96,7 @@ public class RoadGraphRenderer : MonoBehaviour
         obj.transform.parent = transform;
 
         LineRenderer lr = obj.AddComponent<LineRenderer>();
-        lr.material = roadLineMaterial;
+        lr.sharedMaterial = roadLineMaterial;
         lr.startColor = Color.red;
         lr.endColor = Color.red;
         lr.widthMultiplier = lineWidth;

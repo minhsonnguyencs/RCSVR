@@ -10679,7 +10679,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RoadGraphRenderer
   fileName: ingolstadt_road_graph.json
-  roadLineMaterial: {fileID: 2100000, guid: e5f012c038eb01944bad8b7666505c36, type: 2}
+  roadLineMaterial: {fileID: 2100000, guid: b9e18775e4c44d9081a7a16eb6e01c26, type: 2}
   lineWidth: 5
   yOffset: 0.1
 --- !u!4 &2084099010
