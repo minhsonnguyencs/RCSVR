@@ -58,6 +58,7 @@ public class CityRoadSpline : MonoBehaviour
 
         if (_mesh == null) _mesh = new Mesh { name = "CityRoadSpline" };
         _mesh.Clear();
+        _mesh.indexFormat = IndexFormat.UInt32;
         _mesh.CombineMeshes(combines.ToArray(), true, false);
         _mesh.RecalculateNormals();
         _mesh.RecalculateBounds();
@@ -88,6 +89,7 @@ public class CityRoadSpline : MonoBehaviour
         float uvAlong = 0f;         // accumulated road-length UV
 
         Vector3 prevLeft = Vector3.zero;
+        float3 prevRight = new float3(1f, 0f, 0f);
 
         for (int i = 0; i <= samples; i++)
         {
@@ -95,11 +97,19 @@ public class CityRoadSpline : MonoBehaviour
             SplineUtility.Evaluate(spline, t,
                 out float3 pos, out float3 tangent, out float3 up);
 
-            // Flatten tangent to XZ plane so the road stays level
-            float3 tangentXZ = math.normalize(new float3(tangent.x, 0f, tangent.z));
-
-            // Right vector: cross( up=(0,1,0), tangentXZ )
-            float3 right = math.normalize(math.cross(new float3(0f, 1f, 0f), tangentXZ));
+            // Flatten tangent to XZ plane so the road stays level.
+            // Duplicate/coincident points in the source data can produce a
+            // zero-length tangent here; normalizing that yields NaN, which
+            // poisons every vertex after it and breaks the mesh's AABB.
+            float3 tangentXZ = new float3(tangent.x, 0f, tangent.z);
+            float3 right = prevRight;
+            if (math.lengthsq(tangentXZ) > 1e-10f)
+            {
+                tangentXZ = math.normalize(tangentXZ);
+                // Right vector: cross( up=(0,1,0), tangentXZ )
+                right = math.normalize(math.cross(new float3(0f, 1f, 0f), tangentXZ));
+                prevRight = right;
+            }
 
             float halfW = roadWidth * 0.5f;
             var leftPt  = new Vector3(pos.x - right.x * halfW, yOffset, pos.z - right.z * halfW);
