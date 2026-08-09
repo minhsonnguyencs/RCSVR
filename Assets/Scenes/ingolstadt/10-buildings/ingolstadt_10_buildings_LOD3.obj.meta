@@ -3,7 +3,92 @@ guid: d323a9fee3dfac44bbd69437fe6ca5c6
 ModelImporter:
   serializedVersion: 24200
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: color_0_502_0_502_0_502_0_50
+    second: {fileID: 2100000, guid: 3379b36455ccf054c992d41b807c4f4d, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: color_0_753_0_753_0_753_1_00
+    second: {fileID: 2100000, guid: 3379b36455ccf054c992d41b807c4f4d, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: color_0_961_0_961_0_961_1_00
+    second: {fileID: 2100000, guid: 3379b36455ccf054c992d41b807c4f4d, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: color_1_000_0_980_0_980_1_00
+    second: {fileID: 2100000, guid: 3379b36455ccf054c992d41b807c4f4d, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Concrete_Form_4x8
+    second: {fileID: 2100000, guid: 4dd7c9459a3145a8bbfe455dd83608c1, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Granite_02
+    second: {fileID: 2100000, guid: c1c32d6e9e344d6b9b1c28d51f099326, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Roofing_Shingles_GAF_Estates00
+    second: {fileID: 2100000, guid: a151ebb18bed4a4b8e75711c40699eb8, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Roofing_Tile_Spanish10
+    second: {fileID: 2100000, guid: 1dc51612575a4837b342a36df07a9092, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Steel_Brushed_Stainless05
+    second: {fileID: 2100000, guid: 086672a3699440c3a8fe7e3955526548, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Steel_Brushed_Stainless10
+    second: {fileID: 2100000, guid: 0ba70f0806e842638b8ed62907dac97b, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: White_Tile_Black_Accent_
+    second: {fileID: 2100000, guid: db5f86416a934a87a7edca28f675898f, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Wood_Cherry_Original
+    second: {fileID: 2100000, guid: 3d0843933e1a4a428f6f980c8b99a83a, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: color_0_392_0_584_0_929_0_50
+    second: {fileID: 2100000, guid: 8790be38bd77e264a99f77da15294185, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: color_1_000_0_894_0_769_1_00
+    second: {fileID: 2100000, guid: 3379b36455ccf054c992d41b807c4f4d, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ground
+    second: {fileID: 2100000, guid: df119f58938c40fe933cb887595844e4, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: roof
+    second: {fileID: 2100000, guid: e25c617336914f81909cca19dfd31001, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: wall
+    second: {fileID: 2100000, guid: 3379b36455ccf054c992d41b807c4f4d, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0
@@ -30,7 +115,7 @@ ModelImporter:
     extraExposedTransformPaths: []
     extraUserProperties: []
     clipAnimations: []
-    isReadable: 0
+    isReadable: 1
   meshes:
     lODScreenPercentages: []
     globalScale: 1
@@ -45,7 +130,7 @@ ModelImporter:
     importLights: 1
     nodeNameCollisionStrategy: 1
     fileIdsGeneration: 2
-    swapUVChannels: 0
+    swapUVChannels: 1
     generateSecondaryUV: 0
     useFileUnits: 1
     keepQuads: 0
