@@ -3,7 +3,22 @@ guid: d5381cbe3dad03346be951cdfe7a0dff
 ModelImporter:
   serializedVersion: 24200
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: lod1_ground
+    second: {fileID: 2100000, guid: df119f58938c40fe933cb887595844e4, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: lod1_roof
+    second: {fileID: 2100000, guid: e25c617336914f81909cca19dfd31001, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: lod1_wall
+    second: {fileID: 2100000, guid: 3379b36455ccf054c992d41b807c4f4d, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0

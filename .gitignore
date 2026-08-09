@@ -109,3 +109,9 @@ InitTestScene*.unity*
 .mcp.json
 .idea/
 .vsconfig
+ProjectSettings/McpUnitySettings.json
+dev/
+_Recovery
+Editor
+guids.txt
+VR.code-workspace
