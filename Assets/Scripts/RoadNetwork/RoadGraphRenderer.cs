@@ -6,7 +6,7 @@ using UnityEngine;
 public class RoadGraphRenderer : MonoBehaviour
 {
     [Header("JSON")]
-    public string fileName = "ingolstadt_road_graph.json";
+    public string fileName = "ingolstadt_road_graph_square.json";
 
     [Header("Road Appearance")]
     public Material roadMaterial;
