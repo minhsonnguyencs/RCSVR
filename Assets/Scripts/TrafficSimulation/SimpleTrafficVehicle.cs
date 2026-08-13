@@ -4,7 +4,10 @@ using UnityEngine;
 public class SimpleTrafficVehicle : TrafficAgentBase
 {
     [Header("Movement")]
-    public float speed = 10f;
+    [Tooltip("Per-vehicle top speed. TrafficSpawner randomizes this at spawn time.")]
+    public float topSpeedKmh = 36f;
+
+    private float speed => topSpeedKmh / 3.6f;
     public float rotationSpeed = 120f;
     public float waypointTolerance = 0.5f;
 
@@ -37,6 +40,20 @@ public class SimpleTrafficVehicle : TrafficAgentBase
     private float currentTurnSpeed;
     private float currentTurnRotationSpeed;
 
+    public override Lane CurrentLane => currentLane;
+    public override Lane PlannedNextLane => nextLane;
+    public override float CurrentLaneProgress =>
+        isTurning && currentLane != null
+            ? currentLane.totalLength
+            : LanePathUtility.GetProgressOnLane(network, currentLane, targetPointIndex, transform.position);
+    public override float CurrentSpeedMps => isTurning ? currentTurnSpeed : speed;
+    public override float TopSpeedKmh => topSpeedKmh;
+
+    public override void SetTopSpeedKmh(float speedKmh)
+    {
+        topSpeedKmh = Mathf.Max(1f, speedKmh);
+    }
+
 
     public override void Initialize(
         RoadNetworkManager networkManager,
@@ -68,6 +85,9 @@ public class SimpleTrafficVehicle : TrafficAgentBase
 
         targetPointIndex =
             startingPointIndex + 1;
+
+        if (network != null && network.occupancyManager != null)
+            network.occupancyManager.Register(this, currentLane);
 
         FaceCurrentTarget();
     }
@@ -136,44 +156,10 @@ public class SimpleTrafficVehicle : TrafficAgentBase
 
     private float GetRemainingLaneDistance()
     {
-        if (currentLane == null ||
-            currentLane.points == null ||
-            targetPointIndex >=
-            currentLane.points.Count)
-        {
+        if (currentLane == null)
             return 0f;
-        }
 
-        Vector3 target =
-            GetWorldPoint(
-                currentLane.points[targetPointIndex]
-            );
-
-        float remaining =
-            Vector3.Distance(
-                transform.position,
-                target
-            );
-
-        for (int i = targetPointIndex;
-             i < currentLane.points.Count - 1;
-             i++)
-        {
-            Vector3 a =
-                GetWorldPoint(
-                    currentLane.points[i]
-                );
-
-            Vector3 b =
-                GetWorldPoint(
-                    currentLane.points[i + 1]
-                );
-
-            remaining +=
-                Vector3.Distance(a, b);
-        }
-
-        return remaining;
+        return Mathf.Max(0f, currentLane.totalLength - CurrentLaneProgress);
     }
 
 
@@ -190,9 +176,7 @@ public class SimpleTrafficVehicle : TrafficAgentBase
         nextLane = chosenLane;
 
         float outgoingLength =
-            LanePathUtility.GetLength(
-                nextLane.points
-            );
+            LanePathUtility.GetLength(nextLane);
 
         /*
          * Prevent the turn target from lying beyond
@@ -216,10 +200,7 @@ public class SimpleTrafficVehicle : TrafficAgentBase
             transform.position;
 
         Vector3 localEnd =
-            LanePathUtility.GetPointAtDistanceFromStart(
-                nextLane.points,
-                actualEndDistance
-            );
+            LanePathUtility.GetPointAtDistanceFromStart(nextLane, actualEndDistance);
 
         Vector3 end =
             GetWorldPoint(localEnd);
@@ -357,8 +338,12 @@ public class SimpleTrafficVehicle : TrafficAgentBase
             return;
         }
 
+        Lane previousLane = currentLane;
         currentLane = nextLane;
         nextLane = null;
+
+        if (network != null && network.occupancyManager != null)
+            network.occupancyManager.ChangeLane(this, previousLane, currentLane);
 
         isTurning = false;
         turnPath = null;
@@ -624,4 +609,10 @@ public class SimpleTrafficVehicle : TrafficAgentBase
                 maximumTurnRotationSpeed
             );
     }
+    void OnDestroy()
+    {
+        if (network != null && network.occupancyManager != null)
+            network.occupancyManager.Unregister(this, currentLane);
+    }
+
 }

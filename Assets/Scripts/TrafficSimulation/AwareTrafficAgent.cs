@@ -15,7 +15,10 @@ using UnityEngine;
 public class AwareTrafficAgent : TrafficAgentBase
 {
     [Header("Cruising")]
-    public float cruiseSpeed = 12f;
+    [Tooltip("Per-vehicle top speed in km/h. TrafficSpawner randomizes this at spawn time.")]
+    public float topSpeedKmh = 43.2f;
+
+    private float cruiseSpeed => topSpeedKmh / 3.6f;
 
     [Header("Acceleration")]
     public float acceleration = 3f;
@@ -32,6 +35,20 @@ public class AwareTrafficAgent : TrafficAgentBase
     public float turnStartDistance = 5f;
     public float turnEndDistance = 7f;
     public int turnCurvePoints = 10;
+
+    [Header("Turn Path Quality")]
+    [Tooltip("Minimum number of samples used for intersection connectors. Higher values make turns visually smoother.")]
+    public int minimumTurnCurvePoints = 24;
+
+    [Tooltip("How far along each lane is sampled to estimate its direction at the intersection.")]
+    public float turnTangentSampleDistance = 4f;
+
+    [Tooltip("Bezier control-handle length as a fraction of the connector chord length.")]
+    [Range(0.15f, 0.45f)]
+    public float turnHandleScale = 0.35f;
+
+    [Tooltip("Upper limit for Bezier control-handle length, in metres.")]
+    public float maximumTurnHandleLength = 6f;
 
     [Header("Turn Speed")]
     public float minimumTurnSpeed = 4f;
@@ -86,16 +103,38 @@ public class AwareTrafficAgent : TrafficAgentBase
     private bool insideIntersection = false;
     private long activeIntersectionNode = -1;
 
-    /*
-     * Global lightweight registry of traffic agents.
-     *
-     * This lets us query logical lane occupancy without using Physics casts.
-     * For the current prototype this keeps all following behavior inside this
-     * class, so RoadNetworkManager does not need to be modified.
-     */
-    private static readonly HashSet<AwareTrafficAgent> activeAgents =
-        new HashSet<AwareTrafficAgent>();
 
+
+    private List<Vector3> conflictPath;
+
+    public override Lane CurrentLane => currentLane;
+    public override Lane PlannedNextLane => nextLane;
+    public override float CurrentLaneProgress => GetProgressOnCurrentLane();
+    public override float CurrentSpeedMps => currentSpeed;
+    public override float TopSpeedKmh => topSpeedKmh;
+
+    public override void SetTopSpeedKmh(float speedKmh)
+    {
+        topSpeedKmh = Mathf.Max(1f, speedKmh);
+    }
+
+    public override int IntersectionGeometryProfileHash
+    {
+        get
+        {
+            unchecked
+            {
+                int hash = 17;
+                hash = hash * 31 + Mathf.RoundToInt(turnStartDistance * 100f);
+                hash = hash * 31 + Mathf.RoundToInt(turnEndDistance * 100f);
+                hash = hash * 31 + Mathf.Max(turnCurvePoints, minimumTurnCurvePoints);
+                hash = hash * 31 + Mathf.RoundToInt(turnTangentSampleDistance * 100f);
+                hash = hash * 31 + Mathf.RoundToInt(turnHandleScale * 1000f);
+                hash = hash * 31 + Mathf.RoundToInt(maximumTurnHandleLength * 100f);
+                return hash;
+            }
+        }
+    }
 
     public override void Initialize(
         RoadNetworkManager networkManager,
@@ -137,7 +176,8 @@ public class AwareTrafficAgent : TrafficAgentBase
         currentSpeed = 0f;
         desiredSpeed = cruiseSpeed;
 
-        activeAgents.Add(this);
+        if (network != null && network.occupancyManager != null)
+            network.occupancyManager.Register(this, currentLane);
 
         FaceCurrentTarget();
     }
@@ -196,15 +236,6 @@ public class AwareTrafficAgent : TrafficAgentBase
             }
 
             RegisterAtIntersectionIfNeeded();
-
-            if (registeredAtIntersection &&
-                intersectionManager != null)
-            {
-                intersectionManager.UpdatePlannedPath(
-                    activeIntersectionNode,
-                    this
-                );
-            }
         }
 
         /*
@@ -478,6 +509,29 @@ public class AwareTrafficAgent : TrafficAgentBase
         if (nextLane == null)
             return;
 
+        activeIntersectionNode =
+            currentLane.endNode;
+
+        /*
+         * Build the FINAL connector from the car's exact current position.
+         *
+         * Unlike the old quadratic curve, this connector is not attracted to
+         * the graph node.  It is constrained by the incoming and outgoing lane
+         * tangents, which keeps straight movements in-lane and makes left/right
+         * turns follow the correct side of the junction.
+         */
+        turnPath =
+            BuildTurnPathPreview(
+                nextLane
+            );
+
+        if (turnPath == null ||
+            turnPath.Count < 2)
+        {
+            activeIntersectionNode = -1;
+            return;
+        }
+
         if (intersectionManager != null)
         {
             intersectionManager.EnterIntersection(
@@ -487,62 +541,6 @@ public class AwareTrafficAgent : TrafficAgentBase
         }
 
         insideIntersection = true;
-        activeIntersectionNode =
-            currentLane.endNode;
-
-        float outgoingLength =
-            LanePathUtility.GetLength(
-                nextLane.points
-            );
-
-        float actualEndDistance =
-            Mathf.Min(
-                turnEndDistance,
-                outgoingLength * 0.45f
-            );
-
-        Vector3 start =
-            transform.position;
-
-        Vector3 localEnd =
-            LanePathUtility
-                .GetPointAtDistanceFromStart(
-                    nextLane.points,
-                    actualEndDistance
-                );
-
-        Vector3 end =
-            GetWorldPoint(localEnd);
-
-        if (!network.nodesById.TryGetValue(
-                currentLane.endNode,
-                out RoadNodeData intersectionNode))
-        {
-            return;
-        }
-
-        Vector3 localIntersection =
-            new Vector3(
-                intersectionNode.position.x,
-                intersectionNode.position.y,
-                intersectionNode.position.z
-            );
-
-        Vector3 control =
-            network.LanePointToWorld(
-                localIntersection
-            );
-
-        control.y +=
-            heightOffset;
-
-        turnPath =
-            BuildQuadraticBezier(
-                start,
-                control,
-                end,
-                turnCurvePoints
-            );
 
         CalculateTurnDynamics();
 
@@ -550,11 +548,8 @@ public class AwareTrafficAgent : TrafficAgentBase
         isTurning = true;
 
         /*
-         * Do not unregister here.
-         *
-         * IntersectionManager.EnterIntersection() marks our registered
-         * movement as being inside the intersection. It remains available
-         * for geometric conflict checks until FinishTurn().
+         * IntersectionManager already marked the registered movement as being
+         * inside the junction.  Keep that movement there until FinishTurn().
          */
         registeredAtIntersection = false;
     }
@@ -563,34 +558,100 @@ public class AwareTrafficAgent : TrafficAgentBase
     private void MoveAlongTurnPath()
     {
         if (turnPath == null ||
-            turnPathIndex >=
-            turnPath.Count)
+            turnPath.Count < 2 ||
+            turnPathIndex >= turnPath.Count)
         {
             FinishTurn();
             return;
         }
 
-        Vector3 target =
-            turnPath[turnPathIndex];
+        /*
+         * Advance by DISTANCE along the sampled connector instead of moving
+         * toward one waypoint per frame.  A frame can consume several tiny
+         * curve segments, so there is no pause/jerk when a waypoint is reached.
+         */
+        float movementRemaining =
+            currentSpeed * Time.deltaTime;
 
-        Vector3 difference =
-            target
-            - transform.position;
+        Vector3 lastDirection =
+            transform.forward;
 
-        difference.y = 0f;
-
-        if (difference.magnitude <=
-            waypointTolerance)
+        while (movementRemaining > 0f &&
+               turnPathIndex < turnPath.Count)
         {
-            turnPathIndex++;
+            Vector3 target =
+                turnPath[turnPathIndex];
+
+            Vector3 difference =
+                target - transform.position;
+
+            difference.y = 0f;
+
+            float distance =
+                difference.magnitude;
+
+            if (distance < 0.0001f)
+            {
+                transform.position = target;
+                turnPathIndex++;
+                continue;
+            }
+
+            Vector3 direction =
+                difference / distance;
+
+            lastDirection = direction;
+
+            if (movementRemaining >= distance)
+            {
+                transform.position = target;
+                movementRemaining -= distance;
+                turnPathIndex++;
+            }
+            else
+            {
+                transform.position +=
+                    direction * movementRemaining;
+
+                movementRemaining = 0f;
+            }
+        }
+
+        if (turnPathIndex >= turnPath.Count)
+        {
+            FinishTurn();
             return;
         }
 
-        MoveToward(
-            target,
-            currentSpeed,
-            currentTurnRotationSpeed
-        );
+        /*
+         * Face slightly ahead along the curve.  This avoids visually snapping
+         * the car's heading from one sampled segment to the next.
+         */
+        Vector3 lookDirection =
+            turnPath[turnPathIndex]
+            - transform.position;
+
+        lookDirection.y = 0f;
+
+        if (lookDirection.sqrMagnitude < 0.0001f)
+            lookDirection = lastDirection;
+
+        if (lookDirection.sqrMagnitude > 0.0001f)
+        {
+            Quaternion desiredRotation =
+                Quaternion.LookRotation(
+                    lookDirection.normalized,
+                    Vector3.up
+                );
+
+            transform.rotation =
+                Quaternion.RotateTowards(
+                    transform.rotation,
+                    desiredRotation,
+                    currentTurnRotationSpeed
+                    * Time.deltaTime
+                );
+        }
     }
 
 
@@ -606,10 +667,15 @@ public class AwareTrafficAgent : TrafficAgentBase
                 );
         }
 
+        Lane previousLane = currentLane;
+
         currentLane =
             nextLane;
 
         nextLane = null;
+
+        if (network != null && network.occupancyManager != null)
+            network.occupancyManager.ChangeLane(this, previousLane, currentLane);
 
         insideIntersection = false;
         registeredAtIntersection = false;
@@ -660,28 +726,17 @@ public class AwareTrafficAgent : TrafficAgentBase
 
     private Vector3 GetIncomingDirection()
     {
-        List<Vector3> points =
-            currentLane.points;
+        Vector3 direction =
+            TrafficTurnPathUtility.GetEndTangent(
+                network,
+                currentLane,
+                turnTangentSampleDistance
+            );
 
-        if (points.Count < 2)
+        if (direction.sqrMagnitude < 0.001f)
             return transform.forward;
 
-        Vector3 a =
-            network.LanePointToWorld(
-                points[points.Count - 2]
-            );
-
-        Vector3 b =
-            network.LanePointToWorld(
-                points[points.Count - 1]
-            );
-
-        Vector3 direction =
-            b - a;
-
-        direction.y = 0f;
-
-        return direction.normalized;
+        return direction;
     }
 
 
@@ -697,89 +752,34 @@ public class AwareTrafficAgent : TrafficAgentBase
         detectedGap = -1f;
         detectedVehicle = "None";
 
-        if (currentLane == null)
+        if (currentLane == null ||
+            network == null ||
+            network.occupancyManager == null)
+        {
             return cruiseSpeed;
+        }
 
         float myProgress =
             GetProgressOnCurrentLane();
 
-        AwareTrafficAgent leader = null;
-        float leaderProgress =
-            float.PositiveInfinity;
-
-        foreach (AwareTrafficAgent other
-                 in activeAgents)
-        {
-            if (other == null ||
-                other == this ||
-                !other.isActiveAndEnabled ||
-                other.network != network ||
-                other.currentLane != currentLane)
-            {
-                continue;
-            }
-
-            float otherProgress =
-                other.GetProgressOnCurrentLane();
-
-            float delta =
-                otherProgress - myProgress;
-
-            /*
-             * Normal case: the other vehicle is clearly ahead.
-             */
-            bool isAhead =
-                delta > progressTieTolerance;
-
-            /*
-             * If two vehicles somehow occupy almost exactly the same lane
-             * position, use a deterministic tie-break. This prevents the
-             * pathological case where BOTH cars decide that neither is ahead
-             * and continue overlapping forever.
-             */
-            if (!isAhead &&
-                Mathf.Abs(delta) <=
-                progressTieTolerance)
-            {
-                isAhead =
-                    other.GetInstanceID()
-                    < GetInstanceID();
-
-                if (isAhead)
-                {
-                    delta =
-                        progressTieTolerance;
-                }
-            }
-
-            if (!isAhead)
-                continue;
-
-            if (otherProgress <
-                leaderProgress)
-            {
-                leaderProgress =
-                    otherProgress;
-
-                leader = other;
-            }
-        }
+        TrafficAgentBase leader =
+            network.occupancyManager.FindNearestAhead(
+                currentLane,
+                this,
+                myProgress,
+                progressTieTolerance
+            );
 
         if (leader == null)
-        {
             return cruiseSpeed;
-        }
 
         float centreDistance =
             Mathf.Max(
                 0f,
-                leaderProgress
+                leader.CurrentLaneProgress
                 - myProgress
             );
 
-        /*
-         * Convert centre-to-centre separation into an approximate clear gap.
-         */
         float gap =
             Mathf.Max(
                 0f,
@@ -796,29 +796,12 @@ public class AwareTrafficAgent : TrafficAgentBase
             + currentSpeed
             * timeHeadway;
 
-        /*
-         * Emergency spacing.
-         */
         if (gap <= minimumGap)
-        {
             return 0f;
-        }
 
-        /*
-         * Plenty of room.
-         */
         if (gap >= desiredGap)
-        {
             return cruiseSpeed;
-        }
 
-        /*
-         * Simple speed-matching controller:
-         *
-         * - approach the leader's speed as the gap shrinks
-         * - run slightly slower than the leader when the gap is below target
-         * - allow cruise speed once the gap is sufficiently large
-         */
         float gapError =
             gap - desiredGap;
 
@@ -830,7 +813,7 @@ public class AwareTrafficAgent : TrafficAgentBase
             );
 
         float permittedSpeed =
-            leader.currentSpeed
+            leader.CurrentSpeedMps
             + correction;
 
         return Mathf.Clamp(
@@ -841,37 +824,24 @@ public class AwareTrafficAgent : TrafficAgentBase
     }
 
 
+
     private bool HasOutgoingLaneSpace(
         Lane outgoingLane)
     {
         if (outgoingLane == null)
             return false;
 
-        float nearestProgress =
-            float.PositiveInfinity;
-
-        foreach (AwareTrafficAgent other
-                 in activeAgents)
+        if (network == null ||
+            network.occupancyManager == null)
         {
-            if (other == null ||
-                other == this ||
-                !other.isActiveAndEnabled ||
-                other.network != network ||
-                other.currentLane != outgoingLane)
-            {
-                continue;
-            }
-
-            float progress =
-                other.GetProgressOnCurrentLane();
-
-            if (progress <
-                nearestProgress)
-            {
-                nearestProgress =
-                    progress;
-            }
+            return true;
         }
+
+        float nearestProgress =
+            network.occupancyManager.GetNearestProgress(
+                outgoingLane,
+                this
+            );
 
         if (float.IsPositiveInfinity(
                 nearestProgress))
@@ -879,12 +849,6 @@ public class AwareTrafficAgent : TrafficAgentBase
             return true;
         }
 
-        /*
-         * Our connector ends roughly turnEndDistance down the outgoing lane.
-         *
-         * Require enough empty space beyond that merge point for one vehicle
-         * length plus the desired stationary gap.
-         */
         float requiredFrontPosition =
             turnEndDistance
             + vehicleLength
@@ -895,109 +859,23 @@ public class AwareTrafficAgent : TrafficAgentBase
     }
 
 
+
     private float GetProgressOnCurrentLane()
     {
-        if (currentLane == null ||
-            currentLane.points == null ||
-            currentLane.points.Count < 2)
-        {
+        if (currentLane == null)
             return 0f;
-        }
 
-        /*
-         * While turning, consider this vehicle to be at the end of its incoming
-         * lane. This makes followers queue behind the intersection rather than
-         * trying to occupy the same end-of-lane position.
-         */
         if (isTurning)
-        {
-            return LanePathUtility.GetLength(
-                currentLane.points
-            );
-        }
+            return currentLane.totalLength;
 
-        int segmentEndIndex =
-            Mathf.Clamp(
-                targetPointIndex,
-                1,
-                currentLane.points.Count - 1
-            );
-
-        int segmentStartIndex =
-            segmentEndIndex - 1;
-
-        float progress = 0f;
-
-        /*
-         * Full completed segments.
-         */
-        for (int i = 0;
-             i < segmentStartIndex;
-             i++)
-        {
-            progress +=
-                Vector3.Distance(
-                    currentLane.points[i],
-                    currentLane.points[i + 1]
-                );
-        }
-
-        /*
-         * Project the current world position onto the current lane segment.
-         * We do this in world coordinates so RoadNetwork's alignment transform
-         * is handled correctly.
-         */
-        Vector3 a =
-            GetWorldPoint(
-                currentLane.points[
-                    segmentStartIndex
-                ]
-            );
-
-        Vector3 b =
-            GetWorldPoint(
-                currentLane.points[
-                    segmentEndIndex
-                ]
-            );
-
-        a.y = 0f;
-        b.y = 0f;
-
-        Vector3 p =
-            transform.position;
-
-        p.y = 0f;
-
-        Vector3 ab =
-            b - a;
-
-        float segmentLength =
-            ab.magnitude;
-
-        if (segmentLength >
-            0.0001f)
-        {
-            float t =
-                Vector3.Dot(
-                    p - a,
-                    ab
-                )
-                / (
-                    segmentLength
-                    * segmentLength
-                );
-
-            t =
-                Mathf.Clamp01(t);
-
-            progress +=
-                segmentLength
-                * t;
-        }
-
-        return progress;
+        return LanePathUtility.GetProgressOnLane(
+            network,
+            currentLane,
+            targetPointIndex,
+            transform.position
+        );
     }
+
 
 
     /*
@@ -1155,57 +1033,18 @@ public class AwareTrafficAgent : TrafficAgentBase
     private List<Vector3> BuildTurnPathPreview(
         Lane candidateLane)
     {
-        float outgoingLength =
-            LanePathUtility.GetLength(
-                candidateLane.points
-            );
-
-        float actualEndDistance =
-            Mathf.Min(
-                turnEndDistance,
-                outgoingLength * 0.45f
-            );
-
-        Vector3 start =
-            transform.position;
-
-        Vector3 localEnd =
-            LanePathUtility
-                .GetPointAtDistanceFromStart(
-                    candidateLane.points,
-                    actualEndDistance
-                );
-
-        Vector3 end =
-            GetWorldPoint(
-                localEnd
-            );
-
-        RoadNodeData intersectionNode =
-            network.nodesById[
-                currentLane.endNode
-            ];
-
-        Vector3 localIntersection =
-            new Vector3(
-                intersectionNode.position.x,
-                intersectionNode.position.y,
-                intersectionNode.position.z
-            );
-
-        Vector3 control =
-            network.LanePointToWorld(
-                localIntersection
-            );
-
-        control.y +=
-            heightOffset;
-
-        return BuildQuadraticBezier(
-            start,
-            control,
-            end,
-            turnCurvePoints
+        return TrafficTurnPathUtility.BuildConnector(
+            network,
+            currentLane,
+            candidateLane,
+            transform.position,
+            heightOffset,
+            turnEndDistance,
+            turnCurvePoints,
+            minimumTurnCurvePoints,
+            turnTangentSampleDistance,
+            turnHandleScale,
+            maximumTurnHandleLength
         );
     }
 
@@ -1229,6 +1068,30 @@ public class AwareTrafficAgent : TrafficAgentBase
             nextLane
         );
     }
+
+    public override List<Vector3> GetConflictIntersectionPath()
+    {
+        if (nextLane == null)
+            return null;
+
+        conflictPath = TrafficTurnPathUtility.BuildCanonicalConnector(
+            conflictPath,
+            network,
+            currentLane,
+            nextLane,
+            heightOffset,
+            turnStartDistance,
+            turnEndDistance,
+            turnCurvePoints,
+            minimumTurnCurvePoints,
+            turnTangentSampleDistance,
+            turnHandleScale,
+            maximumTurnHandleLength
+        );
+
+        return conflictPath;
+    }
+
 
 
     public override Vector3 GetApproachDirection()
@@ -1285,48 +1148,16 @@ public class AwareTrafficAgent : TrafficAgentBase
 
     private float GetRemainingLaneDistance()
     {
-        if (targetPointIndex >=
-            currentLane.points.Count)
-        {
+        if (currentLane == null)
             return 0f;
-        }
 
-        Vector3 target =
-            GetWorldPoint(
-                currentLane.points[
-                    targetPointIndex
-                ]
-            );
-
-        float remaining =
-            Vector3.Distance(
-                transform.position,
-                target
-            );
-
-        for (int i = targetPointIndex;
-             i < currentLane.points.Count - 1;
-             i++)
-        {
-            Vector3 a =
-                GetWorldPoint(
-                    currentLane.points[i]
-                );
-
-            Vector3 b =
-                GetWorldPoint(
-                    currentLane.points[i + 1]
-                );
-
-            remaining +=
-                Vector3.Distance(
-                    a,
-                    b
-                );
-        }
-
-        return remaining;
+        return Mathf.Max(
+            0f,
+            currentLane.totalLength
+            - GetProgressOnCurrentLane()
+        );
     }
+
 
 
     private void MoveToward(
@@ -1442,56 +1273,13 @@ public class AwareTrafficAgent : TrafficAgentBase
     }
 
 
-    private List<Vector3> BuildQuadraticBezier(
-        Vector3 start,
-        Vector3 control,
-        Vector3 end,
-        int pointCount)
-    {
-        pointCount =
-            Mathf.Max(
-                pointCount,
-                3
-            );
 
-        List<Vector3> result =
-            new List<Vector3>(
-                pointCount
-            );
-
-        for (int i = 0;
-             i < pointCount;
-             i++)
-        {
-            float t =
-                i /
-                (float)(pointCount - 1);
-
-            float oneMinusT =
-                1f - t;
-
-            Vector3 point =
-                oneMinusT
-                * oneMinusT
-                * start
-                + 2f
-                * oneMinusT
-                * t
-                * control
-                + t
-                * t
-                * end;
-
-            result.Add(point);
-        }
-
-        return result;
-    }
 
 
     void OnDestroy()
     {
-        activeAgents.Remove(this);
+        if (network != null && network.occupancyManager != null)
+            network.occupancyManager.Unregister(this, currentLane);
 
         if (intersectionManager == null)
             return;

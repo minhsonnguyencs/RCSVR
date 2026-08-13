@@ -125,7 +125,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c91fcc5faf3ca7b47bdaaae9e4326659, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AwareTrafficAgent_DeadlockEscape
-  cruiseSpeed: 12
+  topSpeedKmh: 43.2
   acceleration: 3
   comfortableDeceleration: 5
   emergencyDeceleration: 10
@@ -136,6 +136,10 @@ MonoBehaviour:
   turnStartDistance: 5
   turnEndDistance: 7
   turnCurvePoints: 10
+  minimumTurnCurvePoints: 24
+  turnTangentSampleDistance: 4
+  turnHandleScale: 0.35
+  maximumTurnHandleLength: 6
   minimumTurnSpeed: 4
   turnSlowdownStrength: 0.08
   intersectionAwarenessDistance: 20
@@ -145,7 +149,7 @@ MonoBehaviour:
   minimumGap: 3
   timeHeadway: 1.3
   progressTieTolerance: 0.1
-  deadlockTimeout: 30
+  deadlockTimeout: 10
   deadlockEscapeDuration: 8
   deadlockEscapeSpeed: 3
   stationarySpeedThreshold: 0.15
