@@ -11,6 +11,19 @@ public class RoadNetworkManager : MonoBehaviour
     [Header("Lane Geometry")]
     public float laneOffset = 1.5f;
 
+    [Header("Coordinate Alignment")]
+    public Transform roadNetworkTransform;
+
+    [Header("Runtime reload dependencies")]
+    [Tooltip("Optional visual road renderer. If assigned, runtime reload rebuilds the road meshes from the same JSON.")]
+    public RoadGraphRenderer roadGraphRenderer;
+
+    [Tooltip("Optional spawner. If assigned, runtime reload clears traffic before replacing the graph and respawns it afterwards.")]
+    public TrafficSpawner trafficSpawner;
+
+    [Header("Live Traffic State")]
+    public TrafficOccupancyManager occupancyManager;
+
     public RoadGraphData graph;
 
     public Dictionary<long, RoadNodeData> nodesById =
@@ -21,11 +34,7 @@ public class RoadNetworkManager : MonoBehaviour
 
     public List<Lane> allLanes = new List<Lane>();
 
-    [Header("Coordinate Alignment")]
-    public Transform roadNetworkTransform;
-
-    [Header("Live Traffic State")]
-    public TrafficOccupancyManager occupancyManager;
+    private readonly List<long> routableDestinationNodes = new List<long>();
 
     void Awake()
     {
@@ -35,31 +44,136 @@ public class RoadNetworkManager : MonoBehaviour
 
         occupancyManager.ResetState();
 
-        LoadGraph();
+        if (roadNetworkTransform == null)
+            roadNetworkTransform = transform;
+
+        LoadGraphFromConfiguredFile(false);
     }
 
-    void LoadGraph()
+    /// <summary>
+    /// UI-friendly setter. It changes the configured filename but does not
+    /// immediately reload. Pair it with ReloadRoadNetwork() on a button.
+    /// </summary>
+    public void SetRoadFileFromString(string value)
     {
-        string path = Path.Combine(Application.streamingAssetsPath, fileName);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            Debug.LogWarning("RoadNetworkManager: road JSON filename cannot be empty.");
+            return;
+        }
+
+        fileName = NormalizeRoadFileName(value);
+
+        if (roadGraphRenderer != null)
+            roadGraphRenderer.fileName = fileName;
+    }
+
+    /// <summary>
+    /// UI-friendly one-call alternative: set the filename and immediately
+    /// rebuild the logical network, visual roads, and traffic.
+    /// </summary>
+    public void ReloadRoadNetworkFromString(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            Debug.LogWarning("RoadNetworkManager: road JSON filename cannot be empty.");
+            return;
+        }
+
+        string requested = NormalizeRoadFileName(value);
+        if (TryReadGraph(requested, out RoadGraphData loadedGraph))
+        {
+            fileName = requested;
+            ApplyReloadedGraph(loadedGraph, true);
+        }
+    }
+
+    private string NormalizeRoadFileName(string value)
+    {
+        string normalized = value.Trim();
+        if (string.IsNullOrEmpty(Path.GetExtension(normalized)))
+            normalized += ".json";
+        return normalized;
+    }
+
+    [ContextMenu("Reload Road Network")]
+    public void ReloadRoadNetwork()
+    {
+        LoadGraphFromConfiguredFile(true);
+    }
+
+    private bool LoadGraphFromConfiguredFile(bool coordinatedRuntimeReload)
+    {
+        if (!TryReadGraph(fileName, out RoadGraphData loadedGraph))
+            return false;
+
+        ApplyReloadedGraph(loadedGraph, coordinatedRuntimeReload);
+        return true;
+    }
+
+    private bool TryReadGraph(string requestedFileName, out RoadGraphData loadedGraph)
+    {
+        loadedGraph = null;
+
+        string path = Path.Combine(
+            Application.streamingAssetsPath,
+            requestedFileName
+        );
 
         if (!File.Exists(path))
         {
             Debug.LogError("Road graph JSON not found: " + path);
-            return;
+            return false;
         }
 
         string json = File.ReadAllText(path);
-        graph = JsonUtility.FromJson<RoadGraphData>(json);
+        loadedGraph = JsonUtility.FromJson<RoadGraphData>(json);
 
-        if (graph == null)
+        if (loadedGraph == null ||
+            loadedGraph.nodes == null ||
+            loadedGraph.edges == null)
         {
-            Debug.LogError("Could not deserialize road graph.");
-            return;
+            Debug.LogError("Could not deserialize road graph: " + requestedFileName);
+            loadedGraph = null;
+            return false;
         }
 
+        return true;
+    }
+
+    private void ApplyReloadedGraph(
+        RoadGraphData loadedGraph,
+        bool coordinatedRuntimeReload)
+    {
+        /*
+         * Traffic is cleared only AFTER the new file has been validated.
+         * Therefore a bad UI filename does not destroy the running simulation.
+         */
+        if (coordinatedRuntimeReload && trafficSpawner != null)
+            trafficSpawner.ClearVehicles();
+
+        if (occupancyManager != null)
+            occupancyManager.ResetState();
+
+        graph = loadedGraph;
+        BuildLaneGraph();
+
+        if (roadGraphRenderer != null)
+        {
+            roadGraphRenderer.fileName = fileName;
+            roadGraphRenderer.GenerateRoadMeshesFromGraph(graph);
+        }
+
+        if (coordinatedRuntimeReload && trafficSpawner != null)
+            trafficSpawner.RespawnVehicles();
+    }
+
+    private void BuildLaneGraph()
+    {
         nodesById.Clear();
         lanesFromNode.Clear();
         allLanes.Clear();
+        routableDestinationNodes.Clear();
 
         foreach (RoadNodeData node in graph.nodes)
         {
@@ -73,9 +187,10 @@ public class RoadNetworkManager : MonoBehaviour
             if (edge.centerline == null || edge.centerline.Length < 2)
                 continue;
 
-            List<Vector3> offsetPoints = LaneGeometry.BuildOffsetLane(edge.centerline, laneOffset);
-            Lane lane = new Lane(laneId++, edge, offsetPoints);
+            List<Vector3> offsetPoints =
+                LaneGeometry.BuildOffsetLane(edge.centerline, laneOffset);
 
+            Lane lane = new Lane(laneId++, edge, offsetPoints);
             allLanes.Add(lane);
 
             if (!lanesFromNode.ContainsKey(lane.startNode))
@@ -84,10 +199,16 @@ public class RoadNetworkManager : MonoBehaviour
             lanesFromNode[lane.startNode].Add(lane);
         }
 
+        foreach (KeyValuePair<long, List<Lane>> pair in lanesFromNode)
+        {
+            if (pair.Value != null && pair.Value.Count > 0)
+                routableDestinationNodes.Add(pair.Key);
+        }
+
         Debug.Log(
-            $"Traffic graph loaded. {graph.nodes.Length} nodes, " +
-            $"{graph.edges.Length} raw edges, {allLanes.Count} lanes. " +
-            "Lane lengths were precomputed for traffic and future pathfinding."
+            $"Traffic graph loaded from {fileName}. " +
+            $"{graph.nodes.Length} nodes, {graph.edges.Length} raw edges, " +
+            $"{allLanes.Count} directed lanes."
         );
     }
 
@@ -95,17 +216,22 @@ public class RoadNetworkManager : MonoBehaviour
     {
         if (roadNetworkTransform == null)
             return localPoint;
+
         return roadNetworkTransform.TransformPoint(localPoint);
     }
 
     public int GetLaneVehicleCount(Lane lane)
     {
-        return occupancyManager != null ? occupancyManager.GetVehicleCount(lane) : 0;
+        return occupancyManager != null
+            ? occupancyManager.GetVehicleCount(lane)
+            : 0;
     }
 
     public float GetLaneOccupancyRatio(Lane lane)
     {
-        return occupancyManager != null ? occupancyManager.GetOccupancyRatio(lane) : 0f;
+        return occupancyManager != null
+            ? occupancyManager.GetOccupancyRatio(lane)
+            : 0f;
     }
 
     public float GetLaneEstimatedTravelTimeSeconds(
@@ -113,14 +239,124 @@ public class RoadNetworkManager : MonoBehaviour
         float freeFlowSpeedKmh,
         float congestionSensitivity = -1f)
     {
+        if (lane == null)
+            return float.PositiveInfinity;
+
         if (occupancyManager == null)
-            return lane != null ? lane.totalLength / Mathf.Max(0.1f, freeFlowSpeedKmh / 3.6f) : float.PositiveInfinity;
+        {
+            return lane.totalLength /
+                Mathf.Max(0.1f, freeFlowSpeedKmh / 3.6f);
+        }
 
         return occupancyManager.GetEstimatedTravelTimeSeconds(
             lane,
             Mathf.Max(0.1f, freeFlowSpeedKmh / 3.6f),
             congestionSensitivity
         );
+    }
+
+    /// <summary>
+    /// Single routing-cost entry point. Current A* calls this with
+    /// includeTraffic=false. Future congestion-aware routing can flip that
+    /// policy without changing TrafficPathfinder or the movement controllers.
+    /// </summary>
+    public float GetRoutingCostSeconds(
+        Lane lane,
+        float vehicleTopSpeedKmh,
+        bool includeTraffic)
+    {
+        if (lane == null)
+            return float.PositiveInfinity;
+
+        /*
+         * Agent movement currently uses the vehicle's own top speed rather
+         * than OSM maxspeed, so routing uses the same free-flow assumption.
+         * A road-speed-limit policy can be added here later in one place.
+         */
+        float speedKmh = Mathf.Max(1f, vehicleTopSpeedKmh);
+
+        if (includeTraffic)
+            return GetLaneEstimatedTravelTimeSeconds(lane, speedKmh);
+
+        return lane.totalLength / (speedKmh / 3.6f);
+    }
+
+    /// <summary>
+    /// Chooses a random reachable endpoint and returns an A* route to it.
+    /// Farther candidates are preferred for the first N attempts so cars do
+    /// not constantly receive trivial one-intersection trips.
+    /// </summary>
+    public bool TryCreateRandomRoute(
+        long startNode,
+        float vehicleTopSpeedKmh,
+        float minimumStraightLineDistance,
+        int attempts,
+        List<Lane> result,
+        out long destinationNode,
+        bool includeTrafficInCost = false)
+    {
+        result.Clear();
+        destinationNode = -1;
+
+        if (routableDestinationNodes.Count == 0 ||
+            !nodesById.ContainsKey(startNode))
+        {
+            return false;
+        }
+
+        attempts = Mathf.Max(1, attempts);
+
+        for (int pass = 0; pass < 2; pass++)
+        {
+            float requiredDistance = pass == 0
+                ? Mathf.Max(0f, minimumStraightLineDistance)
+                : 0f;
+
+            for (int i = 0; i < attempts; i++)
+            {
+                long candidate = routableDestinationNodes[
+                    Random.Range(0, routableDestinationNodes.Count)
+                ];
+
+                if (candidate == startNode)
+                    continue;
+
+                if (requiredDistance > 0f &&
+                    GetNodeStraightLineDistance(startNode, candidate) < requiredDistance)
+                {
+                    continue;
+                }
+
+                if (TrafficPathfinder.TryFindRoute(
+                        this,
+                        startNode,
+                        candidate,
+                        vehicleTopSpeedKmh,
+                        result,
+                        includeTrafficInCost) &&
+                    result.Count > 0)
+                {
+                    destinationNode = candidate;
+                    return true;
+                }
+            }
+        }
+
+        result.Clear();
+        return false;
+    }
+
+    public float GetNodeStraightLineDistance(long nodeA, long nodeB)
+    {
+        if (!nodesById.TryGetValue(nodeA, out RoadNodeData a) ||
+            !nodesById.TryGetValue(nodeB, out RoadNodeData b))
+        {
+            return 0f;
+        }
+
+        Vector3 pa = new Vector3(a.position.x, a.position.y, a.position.z);
+        Vector3 pb = new Vector3(b.position.x, b.position.y, b.position.z);
+        return Vector3.Distance(pa, pb);
     }
 
     void OnDrawGizmosSelected()
@@ -137,15 +373,18 @@ public class RoadNetworkManager : MonoBehaviour
             {
                 Vector3 p1 = roadNetworkTransform.TransformPoint(lane.points[i]);
                 Vector3 p2 = roadNetworkTransform.TransformPoint(lane.points[i + 1]);
+
                 p1 += Vector3.up * 0.2f;
                 p2 += Vector3.up * 0.2f;
 
                 Vector3 direction = p2 - p1;
                 direction.y = 0f;
+
                 if (direction.sqrMagnitude < 0.0001f)
                     continue;
 
                 direction.Normalize();
+
                 float angle = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg;
                 if (angle < 0f)
                     angle += 360f;

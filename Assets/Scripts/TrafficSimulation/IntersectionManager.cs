@@ -225,6 +225,8 @@ public class IntersectionManager : MonoBehaviour
     public void ClearAllRegistrations()
     {
         movementsByNode.Clear();
+        conflictCache.Clear();
+        cachedConflictDistance = conflictDistance;
     }
 
     private IntersectionMovement FindMovement(long nodeId, TrafficAgentBase vehicle)

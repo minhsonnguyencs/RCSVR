@@ -19,18 +19,19 @@ public class RoadGraphRenderer : MonoBehaviour
     public float defaultLaneWidth = 3.2f;
     public float narrowLaneWidth = 2.8f;
     public float motorwayLaneWidth = 3.5f;
-
     public float defaultShoulderWidth = 0.25f;
     public float motorwayShoulderWidth = 1.0f;
-
     public float minimumRoadWidth = 2.5f;
 
+    public void SetRoadFileFromString(string value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+            fileName = value.Trim();
+    }
 
     [ContextMenu("Generate Road Meshes")]
     public void GenerateRoadMeshes()
     {
-        ClearRoadNetwork();
-
         string path = Path.Combine(
             Application.streamingAssetsPath,
             fileName
@@ -43,25 +44,39 @@ public class RoadGraphRenderer : MonoBehaviour
         }
 
         string json = File.ReadAllText(path);
+        RoadGraphData loadedGraph = JsonUtility.FromJson<RoadGraphData>(json);
 
-        RoadGraphData graph =
-            JsonUtility.FromJson<RoadGraphData>(json);
-
-        if (graph == null || graph.edges == null)
+        if (loadedGraph == null || loadedGraph.edges == null)
         {
             Debug.LogError("Could not read road graph JSON.");
             return;
         }
 
-        int roadsCreated = 0;
+        GenerateRoadMeshesFromGraph(loadedGraph);
+    }
 
-        foreach (RoadEdgeData edge in graph.edges)
+    /// <summary>
+    /// Used by RoadNetworkManager during runtime reload so logical lanes and
+    /// visual meshes are guaranteed to come from the exact same graph object.
+    /// </summary>
+    public void GenerateRoadMeshesFromGraph(RoadGraphData loadedGraph)
+    {
+        if (loadedGraph == null || loadedGraph.edges == null)
+        {
+            Debug.LogError("RoadGraphRenderer received an invalid graph.");
+            return;
+        }
+
+        ClearRoadNetwork();
+
+        int roadsCreated = 0;
+        foreach (RoadEdgeData edge in loadedGraph.edges)
         {
             CreateRoadMesh(edge);
             roadsCreated++;
         }
 
-        Debug.Log($"Created {roadsCreated} road meshes.");
+        Debug.Log($"Created {roadsCreated} road meshes from {fileName}.");
     }
 
     private void CreateRoadMesh(RoadEdgeData edge)
@@ -69,7 +84,7 @@ public class RoadGraphRenderer : MonoBehaviour
         if (edge.centerline == null || edge.centerline.Length < 2)
             return;
 
-        List<Vector3> points = new List<Vector3>();
+        List<Vector3> points = new List<Vector3>(edge.centerline.Length);
 
         foreach (Vector3Data point in edge.centerline)
         {
@@ -80,11 +95,9 @@ public class RoadGraphRenderer : MonoBehaviour
             ));
         }
 
-        float roadWidth = defaultRoadWidth;
-
-        if (!useDefaultRoadWidth) {
-            roadWidth = GetRoadWidth(edge);
-        }
+        float roadWidth = useDefaultRoadWidth
+            ? defaultRoadWidth
+            : GetRoadWidth(edge);
 
         Mesh roadMesh = RoadMeshBuilder.BuildRoadStrip(
             points,
@@ -93,19 +106,11 @@ public class RoadGraphRenderer : MonoBehaviour
             yOffset
         );
 
-        GameObject roadObject =
-            new GameObject($"Road_{edge.id}");
+        GameObject roadObject = new GameObject($"Road_{edge.id}");
+        roadObject.transform.SetParent(transform, false);
 
-        roadObject.transform.SetParent(
-            transform,
-            false
-        );
-
-        MeshFilter meshFilter =
-            roadObject.AddComponent<MeshFilter>();
-
-        MeshRenderer meshRenderer =
-            roadObject.AddComponent<MeshRenderer>();
+        MeshFilter meshFilter = roadObject.AddComponent<MeshFilter>();
+        MeshRenderer meshRenderer = roadObject.AddComponent<MeshRenderer>();
 
         meshFilter.sharedMesh = roadMesh;
         meshRenderer.sharedMaterial = roadMaterial;
@@ -114,11 +119,24 @@ public class RoadGraphRenderer : MonoBehaviour
     [ContextMenu("Clear Road Network")]
     public void ClearRoadNetwork()
     {
-        while (transform.childCount > 0)
+        for (int i = transform.childCount - 1; i >= 0; i--)
         {
-            DestroyImmediate(
-                transform.GetChild(0).gameObject
-            );
+            GameObject child = transform.GetChild(i).gameObject;
+            MeshFilter filter = child.GetComponent<MeshFilter>();
+            Mesh generatedMesh = filter != null ? filter.sharedMesh : null;
+
+            if (Application.isPlaying)
+            {
+                if (generatedMesh != null)
+                    Destroy(generatedMesh);
+                Destroy(child);
+            }
+            else
+            {
+                if (generatedMesh != null)
+                    DestroyImmediate(generatedMesh);
+                DestroyImmediate(child);
+            }
         }
     }
 
@@ -126,18 +144,15 @@ public class RoadGraphRenderer : MonoBehaviour
     {
         int laneCount = edge.lanes;
 
-        // Handle missing or invalid lane data.
         if (laneCount <= 0)
-        {
             laneCount = GetDefaultLaneCount(edge.highway, edge.oneway);
-        }
 
         return laneCount;
     }
 
     private int GetDefaultLaneCount(string highway, bool oneway)
     {
-        switch (highway)
+        switch (NormalizeHighway(highway))
         {
             case "motorway":
             case "motorway_link":
@@ -147,7 +162,7 @@ public class RoadGraphRenderer : MonoBehaviour
             case "trunk_link":
             case "primary":
             case "primary_link":
-                return oneway ? 2 : 2;
+                return 2;
 
             case "secondary":
             case "secondary_link":
@@ -174,11 +189,8 @@ public class RoadGraphRenderer : MonoBehaviour
         if (string.IsNullOrWhiteSpace(highway))
             return "unknown";
 
-        string value = highway
-            .Trim()
-            .ToLowerInvariant();
+        string value = highway.Trim().ToLowerInvariant();
 
-        // Handles values such as "['primary', 'secondary']"
         value = value
             .Replace("[", "")
             .Replace("]", "")
@@ -236,77 +248,7 @@ public class RoadGraphRenderer : MonoBehaviour
         float laneWidth = GetLaneWidth(edge);
         float shoulderWidth = GetShoulderWidth(edge);
 
-        float width =
-            laneCount * laneWidth
-            + shoulderWidth * 2f;
-
+        float width = laneCount * laneWidth + shoulderWidth * 2f;
         return Mathf.Max(width, minimumRoadWidth);
     }
 }
-
-
-
-/**
-using System.IO;
-using UnityEngine;
-
-[ExecuteAlways]
-public class RoadGraphRenderer : MonoBehaviour
-{
-    public string fileName = "ingolstadt_road_graph.json";
-    public Material roadLineMaterial;
-    public float lineWidth = 1.5f;
-    public float yOffset = 0.1f;
-
-    [ContextMenu("Generate Road Network")]
-    public void GenerateRoadNetwork()
-    {
-        ClearRoadNetwork();
-
-        string path = Path.Combine(Application.streamingAssetsPath, fileName);
-        string json = File.ReadAllText(path);
-        RoadGraphData graph = JsonUtility.FromJson<RoadGraphData>(json);
-
-        foreach (RoadEdgeData edge in graph.edges)
-            DrawEdge(edge);
-
-        Debug.Log($"Generated road graph: {graph.nodes.Length} nodes, {graph.edges.Length} edges");
-    }
-
-    [ContextMenu("Clear Road Network")]
-    public void ClearRoadNetwork()
-    {
-        while (transform.childCount > 0)
-        {
-            DestroyImmediate(transform.GetChild(0).gameObject);
-        }
-    }
-
-    void DrawEdge(RoadEdgeData edge)
-    {
-        GameObject obj = new GameObject("Road_" + edge.id);
-        obj.transform.parent = transform;
-
-        LineRenderer lr = obj.AddComponent<LineRenderer>();
-        lr.material = roadLineMaterial;
-        lr.startColor = Color.red;
-        lr.endColor = Color.red;
-        lr.widthMultiplier = lineWidth;
-        lr.positionCount = edge.centerline.Length;
-        lr.useWorldSpace = false;
-
-        Vector3[] points = new Vector3[edge.centerline.Length];
-
-        for (int i = 0; i < edge.centerline.Length; i++)
-        {
-            points[i] = new Vector3(
-                edge.centerline[i].x,
-                edge.centerline[i].y + yOffset,
-                edge.centerline[i].z
-            );
-        }
-
-        lr.SetPositions(points);
-    }
-}
-**/

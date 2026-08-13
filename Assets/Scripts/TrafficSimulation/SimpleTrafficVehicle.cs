@@ -89,6 +89,8 @@ public class SimpleTrafficVehicle : TrafficAgentBase
         if (network != null && network.occupancyManager != null)
             network.occupancyManager.Register(this, currentLane);
 
+        InitializeDestinationRouting(network, currentLane);
+
         FaceCurrentTarget();
     }
 
@@ -252,49 +254,44 @@ public class SimpleTrafficVehicle : TrafficAgentBase
 
     private Lane ChooseNextLane()
     {
-        long intersectionNode =
-            currentLane.endNode;
+        Lane routed = ChoosePathfindingNextLane(currentLane);
+        if (routed != null)
+            return routed;
 
-        long previousNode =
-            currentLane.startNode;
-
-        if (!network.lanesFromNode.TryGetValue(
-                intersectionNode,
-                out List<Lane> candidates))
+        /*
+         * Rare fallback for disconnected or malformed graph data. The normal
+         * path is always A*. This keeps a vehicle from becoming permanently
+         * frozen if no route can be constructed from an isolated component.
+         */
+        if (network == null || currentLane == null ||
+            !network.lanesFromNode.TryGetValue(
+                currentLane.endNode,
+                out List<Lane> candidates) ||
+            candidates == null || candidates.Count == 0)
         {
             return null;
         }
 
-        if (candidates == null ||
-            candidates.Count == 0)
+        Lane fallback = null;
+        int eligible = 0;
+
+        foreach (Lane candidate in candidates)
         {
-            return null;
+            if (candidate == null)
+                continue;
+
+            if (candidate.endNode == currentLane.startNode &&
+                candidates.Count > 1)
+            {
+                continue;
+            }
+
+            eligible++;
+            if (Random.Range(0, eligible) == 0)
+                fallback = candidate;
         }
 
-        /*
-         * Avoid immediately returning along
-         * the road we just came from.
-         */
-        List<Lane> validCandidates =
-            candidates.FindAll(
-                lane =>
-                    lane.endNode != previousNode
-            );
-
-        /*
-         * Dead end: allow a U-turn.
-         */
-        if (validCandidates.Count == 0)
-        {
-            validCandidates = candidates;
-        }
-
-        return validCandidates[
-            Random.Range(
-                0,
-                validCandidates.Count
-            )
-        ];
+        return fallback ?? candidates[0];
     }
 
 
@@ -341,6 +338,8 @@ public class SimpleTrafficVehicle : TrafficAgentBase
         Lane previousLane = currentLane;
         currentLane = nextLane;
         nextLane = null;
+
+        NotifyRouteLaneTransition(previousLane, currentLane);
 
         if (network != null && network.occupancyManager != null)
             network.occupancyManager.ChangeLane(this, previousLane, currentLane);
