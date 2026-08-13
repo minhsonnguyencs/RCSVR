@@ -4,19 +4,33 @@ using UnityEngine;
 /// <summary>
 /// Common traffic-agent API plus destination-based route management.
 /// Concrete movement/following/intersection behavior remains in subclasses.
+///
+/// Routing policy is global on RoadNetworkManager:
+/// - Static: free-flow A*, no congestion rerouting.
+/// - TrafficAware: occupancy-weighted A* plus periodic beneficial rerouting.
+///
+/// Destination generation can optionally use TrafficDemandManager zones and
+/// an OD matrix. The vehicle population remains closed: reaching a destination
+/// immediately creates the next trip.
 /// </summary>
 public abstract class TrafficAgentBase : MonoBehaviour
 {
     [Header("Destination routing")]
-    [Tooltip("Minimum straight-line separation used when choosing a new random destination node.")]
+    [Tooltip("Minimum straight-line separation used when choosing a new destination node.")]
     [Min(0f)] public float minimumDestinationDistance = 150f;
 
-    [Tooltip("How many random destination candidates are tried before accepting any reachable node.")]
+    [Tooltip("How many destination candidates are tried before the distance condition is relaxed.")]
     [Min(1)] public int destinationSearchAttempts = 16;
 
     [Header("Routing debug")]
     public long debugDestinationNode = -1;
     public int debugRemainingRouteLanes = 0;
+    public string debugRoutingMode = "Static";
+    public float debugLastCurrentRouteCost = -1f;
+    public float debugLastAlternativeRouteCost = -1f;
+    public float debugLastRerouteGainSeconds = 0f;
+    public float debugLastRerouteGainPercent = 0f;
+    public int debugSuccessfulReroutes = 0;
 
     [Header("Scene route visualization")]
     [Tooltip("Draw the selected vehicle's current route in the Scene view.")]
@@ -36,9 +50,73 @@ public abstract class TrafficAgentBase : MonoBehaviour
 
     private RoadNetworkManager routingNetwork;
     private readonly List<Lane> plannedRoute = new List<Lane>();
+    private readonly List<Lane> rerouteCandidate = new List<Lane>();
+
+    /*
+     * Snapshot of the route replaced by the most recent successful
+     * traffic-aware reroute. It exists only for the visual comparison.
+     */
+    private readonly List<Lane> previousRouteSnapshot = new List<Lane>();
+
     private int routeCursor = 0;
     private long destinationNode = -1;
     private long pendingDestinationNode = -1;
+    private float nextRerouteEvaluationTime = float.PositiveInfinity;
+
+    private Renderer[] rerouteHighlightRenderers;
+    private MaterialPropertyBlock rerouteHighlightPropertyBlock;
+    private float rerouteHighlightUntil = -1f;
+    private bool rerouteHighlightActive = false;
+
+    private static readonly int BaseColorProperty =
+        Shader.PropertyToID("_BaseColor");
+
+    private static readonly int ColorProperty =
+        Shader.PropertyToID("_Color");
+
+    /*
+     * Successful-reroute visualization is configured centrally on
+     * TrafficSpawner so every concrete traffic-agent type uses the same
+     * debugging settings.
+     */
+    private TrafficSpawner VisualizationSpawner =>
+        routingNetwork != null
+            ? routingNetwork.trafficSpawner
+            : null;
+
+    private bool HighlightSuccessfulReroutes =>
+        VisualizationSpawner == null
+            ? true
+            : VisualizationSpawner.highlightSuccessfulReroutes;
+
+    private float RerouteHighlightDuration =>
+        VisualizationSpawner == null
+            ? 10f
+            : Mathf.Max(
+                0f,
+                VisualizationSpawner.rerouteHighlightDuration
+            );
+
+    private Color RerouteHighlightColor =>
+        VisualizationSpawner == null
+            ? Color.cyan
+            : VisualizationSpawner.rerouteHighlightColor;
+
+    private bool ShowRerouteRouteComparison =>
+        VisualizationSpawner == null
+            ? true
+            : VisualizationSpawner.showRerouteRouteComparison;
+
+    private Color PreviousRouteGizmoColor =>
+        VisualizationSpawner == null
+            ? Color.magenta
+            : VisualizationSpawner.previousRouteGizmoColor;
+
+    private Color NewRouteGizmoColor =>
+        VisualizationSpawner == null
+            ? Color.green
+            : VisualizationSpawner.newRouteGizmoColor;
+
 
     public abstract Lane CurrentLane { get; }
     public virtual Lane PlannedNextLane => null;
@@ -47,7 +125,11 @@ public abstract class TrafficAgentBase : MonoBehaviour
     public abstract float TopSpeedKmh { get; }
 
     public long DestinationNode => destinationNode;
-    public int RemainingRouteLaneCount => Mathf.Max(0, plannedRoute.Count - routeCursor);
+    public int RemainingRouteLaneCount =>
+        Mathf.Max(
+            0,
+            plannedRoute.Count - routeCursor
+        );
 
     public abstract void Initialize(
         RoadNetworkManager networkManager,
@@ -62,96 +144,472 @@ public abstract class TrafficAgentBase : MonoBehaviour
     public virtual Vector3 GetApproachDirection() => transform.forward;
     public virtual int IntersectionGeometryProfileHash => 0;
 
-    /// <summary>
-    /// Call once from the concrete Initialize method after currentLane is set.
-    /// </summary>
     protected void InitializeDestinationRouting(
         RoadNetworkManager networkManager,
         Lane startingLane)
     {
         routingNetwork = networkManager;
         plannedRoute.Clear();
+        rerouteCandidate.Clear();
+        previousRouteSnapshot.Clear();
         routeCursor = 0;
         destinationNode = -1;
         pendingDestinationNode = -1;
+        debugSuccessfulReroutes = 0;
 
-        if (routingNetwork != null && startingLane != null)
-            PlanNewDestination(startingLane.endNode);
+        RestoreRerouteHighlight();
+        CacheRerouteHighlightRenderers();
 
+        if (routingNetwork != null &&
+            startingLane != null)
+        {
+            PlanNewDestination(
+                startingLane.endNode
+            );
+        }
+
+        ScheduleNextRerouteEvaluation();
         RefreshRoutingDebug();
     }
 
     /// <summary>
-    /// Concrete agents call this wherever they previously selected a random
-    /// outgoing lane. It returns the next lane on the A* route.
+    /// Call once from each concrete vehicle Update().
+    /// In Static mode this is effectively free. In TrafficAware mode the method
+    /// periodically checks whether a new route to the SAME destination is
+    /// sufficiently faster than the current remaining route.
     /// </summary>
-    protected Lane ChoosePathfindingNextLane(Lane currentLane)
+    protected void UpdateDynamicRouting()
     {
-        if (routingNetwork == null || currentLane == null)
+        UpdateRerouteHighlight();
+
+        if (routingNetwork == null ||
+            CurrentLane == null ||
+            destinationNode < 0)
+        {
+            return;
+        }
+
+        TrafficRoutingPolicy policy =
+            routingNetwork.routingPolicy;
+
+        if (policy == null ||
+            policy.mode != TrafficRoutingMode.TrafficAware)
+        {
+            debugRoutingMode = "Static";
+            return;
+        }
+
+        debugRoutingMode = "TrafficAware";
+
+        if (Time.time <
+            nextRerouteEvaluationTime)
+        {
+            return;
+        }
+
+        ScheduleNextRerouteEvaluation();
+
+        /*
+         * Do not change route after a concrete controller has already selected
+         * an outgoing lane for the upcoming intersection. This keeps the
+         * intersection reservation and physical turn plan consistent.
+         */
+        if (PlannedNextLane != null)
+            return;
+
+        if (CurrentLane.endNode == destinationNode)
+            return;
+
+        if (routeCursor >= plannedRoute.Count)
+            return;
+
+        float currentCost =
+            routingNetwork.GetRouteCostSeconds(
+                plannedRoute,
+                routeCursor,
+                TopSpeedKmh,
+                true,
+                policy.congestionWeight,
+                policy.congestionExponent,
+                policy.maximumCongestionMultiplier
+            );
+
+        debugLastCurrentRouteCost =
+            currentCost;
+
+        if (float.IsInfinity(currentCost) ||
+            currentCost <
+            policy.minimumRemainingRouteTimeSeconds)
+        {
+            return;
+        }
+
+        rerouteCandidate.Clear();
+
+        bool found =
+            TrafficPathfinder.TryFindRoute(
+                routingNetwork,
+                CurrentLane.endNode,
+                destinationNode,
+                TopSpeedKmh,
+                rerouteCandidate,
+                true,
+                policy.congestionWeight,
+                policy.congestionExponent,
+                policy.maximumCongestionMultiplier
+            );
+
+        if (!found ||
+            rerouteCandidate.Count == 0)
+        {
+            return;
+        }
+
+        float alternativeCost =
+            routingNetwork.GetRouteCostSeconds(
+                rerouteCandidate,
+                0,
+                TopSpeedKmh,
+                true,
+                policy.congestionWeight,
+                policy.congestionExponent,
+                policy.maximumCongestionMultiplier
+            );
+
+        debugLastAlternativeRouteCost =
+            alternativeCost;
+
+        if (float.IsInfinity(alternativeCost))
+            return;
+
+        float gainSeconds =
+            currentCost
+            - alternativeCost;
+
+        float gainPercent =
+            currentCost > 0.001f
+                ? gainSeconds
+                  / currentCost
+                  * 100f
+                : 0f;
+
+        debugLastRerouteGainSeconds =
+            gainSeconds;
+
+        debugLastRerouteGainPercent =
+            gainPercent;
+
+        /*
+         * Both thresholds must be met. The absolute threshold filters tiny
+         * numerical wins; the percentage threshold prevents rerouting a long
+         * trip for a negligible relative improvement.
+         */
+        if (gainSeconds <
+                policy.minimumTimeGainSeconds ||
+            gainPercent <
+                policy.minimumTimeGainPercent)
+        {
+            return;
+        }
+
+        /*
+         * Preserve the route we are about to abandon so it can be shown
+         * alongside the accepted route for the highlight duration.
+         */
+        previousRouteSnapshot.Clear();
+
+        for (int i = routeCursor;
+             i < plannedRoute.Count;
+             i++)
+        {
+            Lane oldLane = plannedRoute[i];
+
+            if (oldLane != null)
+            {
+                previousRouteSnapshot.Add(
+                    oldLane
+                );
+            }
+        }
+
+        plannedRoute.Clear();
+        plannedRoute.AddRange(
+            rerouteCandidate
+        );
+
+        routeCursor = 0;
+        pendingDestinationNode = -1;
+        debugSuccessfulReroutes++;
+
+        StartRerouteHighlight();
+        RefreshRoutingDebug();
+    }
+
+    private void CacheRerouteHighlightRenderers()
+    {
+        rerouteHighlightRenderers =
+            GetComponentsInChildren<Renderer>(
+                true
+            );
+
+        if (rerouteHighlightPropertyBlock == null)
+        {
+            rerouteHighlightPropertyBlock =
+                new MaterialPropertyBlock();
+        }
+    }
+
+
+    private void StartRerouteHighlight()
+    {
+        if (!HighlightSuccessfulReroutes ||
+            RerouteHighlightDuration <= 0f)
+        {
+            return;
+        }
+
+        if (rerouteHighlightRenderers == null ||
+            rerouteHighlightRenderers.Length == 0)
+        {
+            CacheRerouteHighlightRenderers();
+        }
+
+        rerouteHighlightUntil =
+            Time.time
+            + RerouteHighlightDuration;
+
+        ApplyRerouteHighlight();
+    }
+
+
+    private void UpdateRerouteHighlight()
+    {
+        if (!rerouteHighlightActive)
+            return;
+
+        if (Time.time <
+            rerouteHighlightUntil)
+        {
+            return;
+        }
+
+        RestoreRerouteHighlight();
+    }
+
+
+    private void ApplyRerouteHighlight()
+    {
+        if (rerouteHighlightRenderers == null)
+            return;
+
+        rerouteHighlightActive = true;
+
+        foreach (Renderer renderer
+                 in rerouteHighlightRenderers)
+        {
+            if (renderer == null)
+                continue;
+
+            Material sharedMaterial =
+                renderer.sharedMaterial;
+
+            if (sharedMaterial == null)
+                continue;
+
+            renderer.GetPropertyBlock(
+                rerouteHighlightPropertyBlock
+            );
+
+            if (sharedMaterial.HasProperty(
+                    BaseColorProperty))
+            {
+                rerouteHighlightPropertyBlock
+                    .SetColor(
+                        BaseColorProperty,
+                        RerouteHighlightColor
+                    );
+            }
+
+            if (sharedMaterial.HasProperty(
+                    ColorProperty))
+            {
+                rerouteHighlightPropertyBlock
+                    .SetColor(
+                        ColorProperty,
+                        RerouteHighlightColor
+                    );
+            }
+
+            renderer.SetPropertyBlock(
+                rerouteHighlightPropertyBlock
+            );
+
+            rerouteHighlightPropertyBlock.Clear();
+        }
+    }
+
+
+    private void RestoreRerouteHighlight()
+    {
+        rerouteHighlightUntil = -1f;
+
+        if (!rerouteHighlightActive)
+            return;
+
+        rerouteHighlightActive = false;
+        previousRouteSnapshot.Clear();
+
+        if (rerouteHighlightRenderers == null)
+            return;
+
+        foreach (Renderer renderer
+                 in rerouteHighlightRenderers)
+        {
+            if (renderer == null)
+                continue;
+
+            /*
+             * The traffic prefabs do not currently use custom per-renderer
+             * property blocks, so clearing the block restores the shared
+             * material's normal appearance without instantiating materials.
+             */
+            renderer.SetPropertyBlock(null);
+        }
+    }
+
+
+    protected virtual void OnDisable()
+    {
+        RestoreRerouteHighlight();
+    }
+
+
+    private void ScheduleNextRerouteEvaluation()
+    {
+        if (routingNetwork == null ||
+            routingNetwork.routingPolicy == null ||
+            routingNetwork.routingPolicy.mode !=
+                TrafficRoutingMode.TrafficAware)
+        {
+            nextRerouteEvaluationTime =
+                float.PositiveInfinity;
+
+            return;
+        }
+
+        TrafficRoutingPolicy policy =
+            routingNetwork.routingPolicy;
+
+        float jitter =
+            Mathf.Max(
+                0f,
+                policy.reroutingIntervalJitterSeconds
+            );
+
+        float interval =
+            Mathf.Max(
+                0.5f,
+                policy.reroutingIntervalSeconds
+                + Random.Range(
+                    -jitter,
+                    jitter
+                )
+            );
+
+        nextRerouteEvaluationTime =
+            Time.time
+            + interval;
+    }
+
+    protected Lane ChoosePathfindingNextLane(
+        Lane currentLane)
+    {
+        if (routingNetwork == null ||
+            currentLane == null)
+        {
             return null;
+        }
 
-        long intersectionNode = currentLane.endNode;
+        long intersectionNode =
+            currentLane.endNode;
 
-        bool routeExhausted = routeCursor >= plannedRoute.Count;
+        bool routeExhausted =
+            routeCursor >=
+            plannedRoute.Count;
+
         bool routeDisconnected =
             !routeExhausted &&
-            plannedRoute[routeCursor].startNode != intersectionNode;
+            plannedRoute[routeCursor]
+                .startNode
+            != intersectionNode;
 
         if (routeExhausted)
         {
-            if (intersectionNode == destinationNode)
+            if (intersectionNode ==
+                destinationNode)
             {
                 /*
-                 * We already need to know the lane AFTER the destination for
-                 * intersection arbitration, so prepare the next trip now. The
-                 * public destination is not changed until the vehicle actually
-                 * transitions across the destination node.
+                 * The outgoing lane has to be known before the destination node
+                 * is physically crossed. Preplan the next trip but do not expose
+                 * the new destination until NotifyRouteLaneTransition().
                  */
-                PlanPendingDestination(intersectionNode);
+                PlanPendingDestination(
+                    intersectionNode
+                );
             }
             else
             {
-                PlanNewDestination(intersectionNode);
+                PlanNewDestination(
+                    intersectionNode
+                );
             }
         }
         else if (routeDisconnected)
         {
-            PlanNewDestination(intersectionNode);
+            PlanNewDestination(
+                intersectionNode
+            );
         }
 
-        if (routeCursor >= plannedRoute.Count)
+        if (routeCursor >=
+            plannedRoute.Count)
         {
             RefreshRoutingDebug();
             return null;
         }
 
-        Lane next = plannedRoute[routeCursor];
+        Lane next =
+            plannedRoute[routeCursor];
+
         routeCursor++;
+
         RefreshRoutingDebug();
         return next;
     }
 
-
-    /// <summary>
-    /// Concrete agents call this after a completed lane transition. It promotes
-    /// a preplanned next destination only after the previous destination node
-    /// has actually been crossed.
-    /// </summary>
-    protected void NotifyRouteLaneTransition(Lane previousLane, Lane newLane)
+    protected void NotifyRouteLaneTransition(
+        Lane previousLane,
+        Lane newLane)
     {
         if (previousLane == null)
             return;
 
         if (pendingDestinationNode >= 0 &&
-            previousLane.endNode == destinationNode)
+            previousLane.endNode ==
+                destinationNode)
         {
-            destinationNode = pendingDestinationNode;
+            destinationNode =
+                pendingDestinationNode;
+
             pendingDestinationNode = -1;
+
+            ScheduleNextRerouteEvaluation();
             RefreshRoutingDebug();
         }
     }
 
-    private bool PlanPendingDestination(long startNode)
+    private bool PlanPendingDestination(
+        long startNode)
     {
         plannedRoute.Clear();
         routeCursor = 0;
@@ -160,16 +618,18 @@ public abstract class TrafficAgentBase : MonoBehaviour
         if (routingNetwork == null)
             return false;
 
-        if (routingNetwork.TryCreateRandomRoute(
+        bool includeTraffic =
+            ShouldUseTrafficCostForNewTrip();
+
+        if (TryCreateDestinationRoute(
                 startNode,
-                TopSpeedKmh,
-                minimumDestinationDistance,
-                destinationSearchAttempts,
                 plannedRoute,
                 out long selectedDestination,
-                false))
+                includeTraffic))
         {
-            pendingDestinationNode = selectedDestination;
+            pendingDestinationNode =
+                selectedDestination;
+
             RefreshRoutingDebug();
             return true;
         }
@@ -178,24 +638,40 @@ public abstract class TrafficAgentBase : MonoBehaviour
     }
 
     /// <summary>
-    /// Can be called later by a dynamic-routing policy to discard the remaining
-    /// path and compute a new one from the next intersection.
+    /// Public manual reroute hook. The destination stays unchanged.
     /// </summary>
-    public bool ReplanRoute(bool includeTrafficInCost = false)
+    public bool ReplanRoute(
+        bool includeTrafficInCost = false)
     {
-        if (routingNetwork == null || CurrentLane == null)
+        if (routingNetwork == null ||
+            CurrentLane == null ||
+            destinationNode < 0)
+        {
             return false;
+        }
 
-        return PlanNewDestination(
-            CurrentLane.endNode,
-            includeTrafficInCost,
-            destinationNode
-        );
+        plannedRoute.Clear();
+        routeCursor = 0;
+        pendingDestinationNode = -1;
+
+        bool found =
+            TrafficPathfinder.TryFindRoute(
+                routingNetwork,
+                CurrentLane.endNode,
+                destinationNode,
+                TopSpeedKmh,
+                plannedRoute,
+                includeTrafficInCost
+            );
+
+        RefreshRoutingDebug();
+        return found &&
+            plannedRoute.Count > 0;
     }
 
     private bool PlanNewDestination(
         long startNode,
-        bool includeTrafficInCost = false,
+        bool? includeTrafficOverride = null,
         long preferredDestination = -1)
     {
         plannedRoute.Clear();
@@ -205,7 +681,12 @@ public abstract class TrafficAgentBase : MonoBehaviour
         if (routingNetwork == null)
             return false;
 
-        if (preferredDestination >= 0 && preferredDestination != startNode)
+        bool includeTraffic =
+            includeTrafficOverride
+            ?? ShouldUseTrafficCostForNewTrip();
+
+        if (preferredDestination >= 0 &&
+            preferredDestination != startNode)
         {
             if (TrafficPathfinder.TryFindRoute(
                     routingNetwork,
@@ -213,10 +694,15 @@ public abstract class TrafficAgentBase : MonoBehaviour
                     preferredDestination,
                     TopSpeedKmh,
                     plannedRoute,
-                    includeTrafficInCost) &&
+                    includeTraffic,
+                    GetCongestionWeight(),
+                    GetCongestionExponent(),
+                    GetMaximumCongestionMultiplier()) &&
                 plannedRoute.Count > 0)
             {
-                destinationNode = preferredDestination;
+                destinationNode =
+                    preferredDestination;
+
                 RefreshRoutingDebug();
                 return true;
             }
@@ -224,16 +710,15 @@ public abstract class TrafficAgentBase : MonoBehaviour
             plannedRoute.Clear();
         }
 
-        if (routingNetwork.TryCreateRandomRoute(
+        if (TryCreateDestinationRoute(
                 startNode,
-                TopSpeedKmh,
-                minimumDestinationDistance,
-                destinationSearchAttempts,
                 plannedRoute,
                 out long selectedDestination,
-                includeTrafficInCost))
+                includeTraffic))
         {
-            destinationNode = selectedDestination;
+            destinationNode =
+                selectedDestination;
+
             RefreshRoutingDebug();
             return true;
         }
@@ -243,10 +728,112 @@ public abstract class TrafficAgentBase : MonoBehaviour
         return false;
     }
 
+    private bool TryCreateDestinationRoute(
+        long startNode,
+        List<Lane> result,
+        out long selectedDestination,
+        bool includeTraffic)
+    {
+        selectedDestination = -1;
+
+        bool useDemand =
+            routingNetwork.trafficDemandManager != null &&
+            routingNetwork.trafficDemandManager
+                .useDemandModel;
+
+        if (useDemand &&
+            routingNetwork.TryCreateDemandRoute(
+                startNode,
+                TopSpeedKmh,
+                minimumDestinationDistance,
+                destinationSearchAttempts,
+                result,
+                out selectedDestination,
+                includeTraffic,
+                GetCongestionWeight(),
+                GetCongestionExponent(),
+                GetMaximumCongestionMultiplier()))
+        {
+            return true;
+        }
+
+        /*
+         * Fallback keeps the simulation running if the OD matrix or zone
+         * configuration cannot produce a reachable destination.
+         */
+        return routingNetwork.TryCreateRandomRoute(
+            startNode,
+            TopSpeedKmh,
+            minimumDestinationDistance,
+            destinationSearchAttempts,
+            result,
+            out selectedDestination,
+            includeTraffic,
+            GetCongestionWeight(),
+            GetCongestionExponent(),
+            GetMaximumCongestionMultiplier()
+        );
+    }
+
+    private bool ShouldUseTrafficCostForNewTrip()
+    {
+        if (routingNetwork == null ||
+            routingNetwork.routingPolicy == null)
+        {
+            return false;
+        }
+
+        TrafficRoutingPolicy policy =
+            routingNetwork.routingPolicy;
+
+        return policy.mode ==
+                TrafficRoutingMode.TrafficAware
+            && policy.trafficAwareInitialRouting;
+    }
+
+    private float GetCongestionWeight()
+    {
+        return routingNetwork != null &&
+               routingNetwork.routingPolicy != null
+            ? routingNetwork.routingPolicy
+                .congestionWeight
+            : -1f;
+    }
+
+    private float GetCongestionExponent()
+    {
+        return routingNetwork != null &&
+               routingNetwork.routingPolicy != null
+            ? routingNetwork.routingPolicy
+                .congestionExponent
+            : -1f;
+    }
+
+    private float GetMaximumCongestionMultiplier()
+    {
+        return routingNetwork != null &&
+               routingNetwork.routingPolicy != null
+            ? routingNetwork.routingPolicy
+                .maximumCongestionMultiplier
+            : -1f;
+    }
+
     private void RefreshRoutingDebug()
     {
-        debugDestinationNode = destinationNode;
-        debugRemainingRouteLanes = RemainingRouteLaneCount;
+        debugDestinationNode =
+            destinationNode;
+
+        debugRemainingRouteLanes =
+            RemainingRouteLaneCount;
+
+        debugRoutingMode =
+            routingNetwork != null &&
+            routingNetwork.routingPolicy != null
+                ? routingNetwork
+                    .routingPolicy
+                    .mode
+                    .ToString()
+                : "Static";
     }
 
     private void OnDrawGizmosSelected()
@@ -266,26 +853,65 @@ public abstract class TrafficAgentBase : MonoBehaviour
 
     private void DrawRouteGizmos()
     {
-        Gizmos.color = Color.cyan;
-
         /*
-         * Draw only the part of the current lane that is still ahead of
-         * the vehicle. This avoids painting the already-travelled portion
-         * of the lane when a car is selected.
+         * The remainder of the current lane is common to both alternatives:
+         * traffic-aware rerouting is only allowed before a concrete outgoing
+         * lane has been reserved for the next intersection.
          */
+        Gizmos.color = Color.cyan;
         DrawCurrentLaneRemainder();
 
         /*
-         * ChoosePathfindingNextLane() advances routeCursor as soon as an
-         * outgoing lane is reserved for the upcoming intersection. While
-         * the vehicle is still on its incoming lane that reserved lane is
-         * therefore no longer present in plannedRoute[routeCursor..].
+         * During the same window in which the vehicle is tinted cyan:
          *
-         * PlannedNextLane exposes that reserved lane from the concrete
-         * controller, so draw it explicitly when appropriate.
+         *   magenta = previous / abandoned route
+         *   green   = newly accepted route
+         *
+         * After the highlight expires, only the normal cyan route remains.
          */
-        Lane reservedNextLane = PlannedNextLane;
+        if (ShowRerouteRouteComparison &&
+            rerouteHighlightActive &&
+            previousRouteSnapshot.Count > 0)
+        {
+            DrawLaneSequence(
+                previousRouteSnapshot,
+                0,
+                PreviousRouteGizmoColor,
+                null
+            );
 
+            DrawLaneSequence(
+                plannedRoute,
+                routeCursor,
+                NewRouteGizmoColor,
+                PlannedNextLane
+            );
+
+            return;
+        }
+
+        DrawLaneSequence(
+            plannedRoute,
+            routeCursor,
+            Color.cyan,
+            PlannedNextLane
+        );
+    }
+
+
+    private void DrawLaneSequence(
+        IReadOnlyList<Lane> route,
+        int startIndex,
+        Color color,
+        Lane reservedNextLane)
+    {
+        Gizmos.color = color;
+
+        /*
+         * ChoosePathfindingNextLane() advances routeCursor as soon as an
+         * outgoing lane is reserved for an approaching intersection.
+         * Draw that lane explicitly when needed.
+         */
         if (reservedNextLane != null &&
             reservedNextLane != CurrentLane)
         {
@@ -295,14 +921,21 @@ public abstract class TrafficAgentBase : MonoBehaviour
             );
         }
 
-        /*
-         * Draw all not-yet-consumed route lanes.
-         */
-        for (int i = routeCursor;
-             i < plannedRoute.Count;
+        if (route == null)
+            return;
+
+        int safeStart =
+            Mathf.Clamp(
+                startIndex,
+                0,
+                route.Count
+            );
+
+        for (int i = safeStart;
+             i < route.Count;
              i++)
         {
-            Lane lane = plannedRoute[i];
+            Lane lane = route[i];
 
             if (lane == null ||
                 lane == reservedNextLane)

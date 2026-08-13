@@ -20,6 +20,25 @@ public class TrafficSpawner : MonoBehaviour
     [Tooltip("If enabled, spawned cars are parented under this spawner for a clean hierarchy.")]
     public bool parentVehiclesToSpawner = true;
 
+    [Header("Successful reroute visualization")]
+    [Tooltip("Temporarily tint vehicles after they accept a new congestion-avoiding route.")]
+    public bool highlightSuccessfulReroutes = true;
+
+    [Tooltip("How long the successful-reroute visualization remains active.")]
+    [Min(0f)] public float rerouteHighlightDuration = 10f;
+
+    [Tooltip("Vehicle tint used after a successful traffic-aware reroute.")]
+    public Color rerouteHighlightColor = Color.cyan;
+
+    [Tooltip("While the highlight is active, show the abandoned and newly accepted routes in Scene view.")]
+    public bool showRerouteRouteComparison = true;
+
+    [Tooltip("Scene-view color of the route that was abandoned.")]
+    public Color previousRouteGizmoColor = Color.magenta;
+
+    [Tooltip("Scene-view color of the newly accepted route.")]
+    public Color newRouteGizmoColor = Color.green;
+
     private readonly List<GameObject> spawnedVehicles = new List<GameObject>();
 
     public int CurrentSpawnedVehicleCount => spawnedVehicles.Count;
@@ -134,7 +153,26 @@ public class TrafficSpawner : MonoBehaviour
 
     private void SpawnVehicle(float minSpeedKmh, float maxSpeedKmh)
     {
-        Lane lane = network.allLanes[Random.Range(0, network.allLanes.Count)];
+        Lane lane = null;
+
+        if (network.trafficDemandManager != null &&
+            network.trafficDemandManager.useDemandModel)
+        {
+            lane =
+                network.trafficDemandManager
+                    .ChooseSpawnLane();
+        }
+
+        if (lane == null)
+        {
+            lane =
+                network.allLanes[
+                    Random.Range(
+                        0,
+                        network.allLanes.Count
+                    )
+                ];
+        }
 
         int spawnPointIndex = 0;
         if (lane.points.Count > 2)

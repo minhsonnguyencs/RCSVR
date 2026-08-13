@@ -7,6 +7,10 @@ public class IntersectionManager : MonoBehaviour
     [Header("Conflict Detection")]
     public float conflictDistance = 2.2f;
 
+    [Header("Same-Movement Platoons")]
+    [Tooltip("Allow vehicles with the same incoming and outgoing lane to follow each other through an intersection instead of waiting for the leader to clear the whole junction.")]
+    public bool allowSameMovementPlatoons = true;
+
     private readonly Dictionary<long, List<IntersectionMovement>> movementsByNode =
         new Dictionary<long, List<IntersectionMovement>>();
 
@@ -222,6 +226,73 @@ public class IntersectionManager : MonoBehaviour
         UnregisterApproach(nodeId, vehicle);
     }
 
+    /// <summary>
+    /// Returns the nearest logical predecessor that is already inside the
+    /// intersection on exactly the same incoming-to-outgoing movement.
+    ///
+    /// Same-movement vehicles are allowed to form a platoon through the
+    /// junction, so the follower uses this vehicle for ordinary spacing rather
+    /// than treating it as an intersection-priority conflict.
+    /// </summary>
+    public TrafficAgentBase GetSameMovementLeaderInside(
+        long nodeId,
+        TrafficAgentBase vehicle)
+    {
+        if (vehicle == null ||
+            !movementsByNode.TryGetValue(
+                nodeId,
+                out List<IntersectionMovement> movements))
+        {
+            return null;
+        }
+
+        RemoveDestroyed(movements);
+
+        IntersectionMovement me =
+            FindMovementInList(
+                movements,
+                vehicle
+            );
+
+        if (me == null)
+            return null;
+
+        /*
+         * Arrival time gives us the order along one logical traffic stream.
+         * Among earlier vehicles that are still inside the junction, the one
+         * with the latest arrival time is our immediate predecessor.
+         */
+        IntersectionMovement leader = null;
+
+        for (int i = 0;
+             i < movements.Count;
+             i++)
+        {
+            IntersectionMovement other =
+                movements[i];
+
+            if (other == me ||
+                other.vehicle == null ||
+                !other.insideIntersection ||
+                !IsSameMovement(me, other) ||
+                other.arrivalTime > me.arrivalTime)
+            {
+                continue;
+            }
+
+            if (leader == null ||
+                other.arrivalTime >
+                leader.arrivalTime)
+            {
+                leader = other;
+            }
+        }
+
+        return leader != null
+            ? leader.vehicle
+            : null;
+    }
+
     public void ClearAllRegistrations()
     {
         movementsByNode.Clear();
@@ -294,8 +365,41 @@ public class IntersectionManager : MonoBehaviour
         return a.profileHash.CompareTo(b.profileHash);
     }
 
+    private bool IsSameMovement(
+        IntersectionMovement a,
+        IntersectionMovement b)
+    {
+        if (a == null ||
+            b == null ||
+            a.incomingLane == null ||
+            b.incomingLane == null ||
+            a.outgoingLane == null ||
+            b.outgoingLane == null)
+        {
+            return false;
+        }
+
+        return
+            a.incomingLane.id ==
+                b.incomingLane.id &&
+            a.outgoingLane.id ==
+                b.outgoingLane.id;
+    }
+
     private bool MovementsConflict(IntersectionMovement a, IntersectionMovement b)
     {
+        /*
+         * Identical traffic streams are not an intersection conflict.
+         * Vehicles on the same incoming lane and the same outgoing lane may
+         * follow each other through the junction; their longitudinal spacing
+         * is handled by the vehicle controller instead.
+         */
+        if (allowSameMovementPlatoons &&
+            IsSameMovement(a, b))
+        {
+            return false;
+        }
+
         if (a.conflictPath == null || a.conflictPath.Count < 2 ||
             b.conflictPath == null || b.conflictPath.Count < 2)
             return false;

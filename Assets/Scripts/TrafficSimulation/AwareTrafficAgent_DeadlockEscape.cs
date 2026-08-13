@@ -218,6 +218,8 @@ public class AwareTrafficAgent_DeadlockEscape : TrafficAgentBase
             return;
         }
 
+        UpdateDynamicRouting();
+
         UpdateDeadlockEscapeState();
 
         if (isTurning)
@@ -395,12 +397,13 @@ public class AwareTrafficAgent_DeadlockEscape : TrafficAgentBase
     private void UpdateTurnDesiredSpeed()
     {
         /*
-         * Do NOT apply ordinary lane-following while traversing the
-         * intersection connector. Cross-traffic is normally governed by the
-         * IntersectionManager.
+         * Cross-traffic remains governed exclusively by IntersectionManager.
+         * However, identical incoming->outgoing movements are now allowed to
+         * form a platoon through the junction.  While on the connector, follow
+         * only the immediately preceding vehicle on that SAME movement.
          *
-         * During deadlock escape, continue through the connector slowly unless
-         * there is a vehicle dangerously close directly ahead.
+         * This deliberately does not use generic geometric/physics following,
+         * so a car on a crossing movement cannot make us stop mid-intersection.
          */
         if (IsDeadlockEscapeActive())
         {
@@ -415,12 +418,92 @@ public class AwareTrafficAgent_DeadlockEscape : TrafficAgentBase
         else
         {
             desiredSpeed =
-                currentTurnSpeed;
+                Mathf.Min(
+                    currentTurnSpeed,
+                    GetIntersectionPlatoonSpeedLimit()
+                );
         }
+    }
 
+
+    private float GetIntersectionPlatoonSpeedLimit()
+    {
         vehicleAhead = false;
         detectedGap = -1f;
         detectedVehicle = "None";
+
+        if (!insideIntersection ||
+            intersectionManager == null ||
+            activeIntersectionNode < 0)
+        {
+            return cruiseSpeed;
+        }
+
+        TrafficAgentBase leader =
+            intersectionManager
+                .GetSameMovementLeaderInside(
+                    activeIntersectionNode,
+                    this
+                );
+
+        if (leader == null)
+            return cruiseSpeed;
+
+        /*
+         * Vehicles in one movement follow nearly the same connector, so their
+         * centre-to-centre world distance is a good approximation of the
+         * longitudinal separation while inside the intersection.
+         */
+        Vector3 separation =
+            leader.transform.position
+            - transform.position;
+
+        separation.y = 0f;
+
+        float centreDistance =
+            separation.magnitude;
+
+        float gap =
+            Mathf.Max(
+                0f,
+                centreDistance
+                - vehicleLength
+            );
+
+        vehicleAhead = true;
+        detectedGap = gap;
+        detectedVehicle = leader.name;
+
+        float desiredGap =
+            minimumGap
+            + currentSpeed
+            * timeHeadway;
+
+        if (gap <= minimumGap)
+            return 0f;
+
+        if (gap >= desiredGap)
+            return cruiseSpeed;
+
+        float gapError =
+            gap - desiredGap;
+
+        float correction =
+            gapError /
+            Mathf.Max(
+                timeHeadway,
+                0.1f
+            );
+
+        float permittedSpeed =
+            leader.CurrentSpeedMps
+            + correction;
+
+        return Mathf.Clamp(
+            permittedSpeed,
+            0f,
+            cruiseSpeed
+        );
     }
 
 

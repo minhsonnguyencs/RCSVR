@@ -193,6 +193,8 @@ public class AwareTrafficAgent : TrafficAgentBase
             return;
         }
 
+        UpdateDynamicRouting();
+
         if (isTurning)
         {
             UpdateTurnDesiredSpeed();

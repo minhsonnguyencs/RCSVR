@@ -24,6 +24,14 @@ public class RoadNetworkManager : MonoBehaviour
     [Header("Live Traffic State")]
     public TrafficOccupancyManager occupancyManager;
 
+    [Header("Routing Policy")]
+    public TrafficRoutingPolicy routingPolicy =
+        new TrafficRoutingPolicy();
+
+    [Header("Supply / Demand")]
+    [Tooltip("Optional demand manager. When assigned and enabled, initial spawn locations and trip destinations use its zone/OD model.")]
+    public TrafficDemandManager trafficDemandManager;
+
     public RoadGraphData graph;
 
     public Dictionary<long, RoadNodeData> nodesById =
@@ -46,6 +54,9 @@ public class RoadNetworkManager : MonoBehaviour
 
         if (roadNetworkTransform == null)
             roadNetworkTransform = transform;
+
+        if (trafficDemandManager == null)
+            trafficDemandManager = FindObjectOfType<TrafficDemandManager>();
 
         LoadGraphFromConfiguredFile(false);
     }
@@ -158,6 +169,9 @@ public class RoadNetworkManager : MonoBehaviour
         graph = loadedGraph;
         BuildLaneGraph();
 
+        if (trafficDemandManager != null)
+            trafficDemandManager.RebuildNetworkCache(this);
+
         if (roadGraphRenderer != null)
         {
             roadGraphRenderer.fileName = fileName;
@@ -263,22 +277,113 @@ public class RoadNetworkManager : MonoBehaviour
     public float GetRoutingCostSeconds(
         Lane lane,
         float vehicleTopSpeedKmh,
-        bool includeTraffic)
+        bool includeTraffic,
+        float congestionWeight = -1f,
+        float congestionExponent = -1f,
+        float maximumCongestionMultiplier = -1f)
     {
         if (lane == null)
             return float.PositiveInfinity;
 
-        /*
-         * Agent movement currently uses the vehicle's own top speed rather
-         * than OSM maxspeed, so routing uses the same free-flow assumption.
-         * A road-speed-limit policy can be added here later in one place.
-         */
-        float speedKmh = Mathf.Max(1f, vehicleTopSpeedKmh);
+        float speedKmh =
+            Mathf.Max(
+                1f,
+                vehicleTopSpeedKmh
+            );
 
-        if (includeTraffic)
-            return GetLaneEstimatedTravelTimeSeconds(lane, speedKmh);
+        float freeFlowTime =
+            lane.totalLength
+            / (speedKmh / 3.6f);
 
-        return lane.totalLength / (speedKmh / 3.6f);
+        if (!includeTraffic ||
+            occupancyManager == null)
+        {
+            return freeFlowTime;
+        }
+
+        TrafficRoutingPolicy policy =
+            routingPolicy
+            ?? new TrafficRoutingPolicy();
+
+        float weight =
+            congestionWeight >= 0f
+                ? congestionWeight
+                : policy.congestionWeight;
+
+        float exponent =
+            congestionExponent > 0f
+                ? congestionExponent
+                : policy.congestionExponent;
+
+        float maxMultiplier =
+            maximumCongestionMultiplier >= 1f
+                ? maximumCongestionMultiplier
+                : policy.maximumCongestionMultiplier;
+
+        float occupancy =
+            Mathf.Clamp01(
+                GetLaneOccupancyRatio(lane)
+            );
+
+        float multiplier =
+            1f
+            + Mathf.Max(0f, weight)
+            * Mathf.Pow(
+                occupancy,
+                Mathf.Max(0.1f, exponent)
+            );
+
+        multiplier =
+            Mathf.Clamp(
+                multiplier,
+                1f,
+                Mathf.Max(1f, maxMultiplier)
+            );
+
+        return freeFlowTime * multiplier;
+    }
+
+    public float GetRouteCostSeconds(
+        IReadOnlyList<Lane> route,
+        int startIndex,
+        float vehicleTopSpeedKmh,
+        bool includeTraffic,
+        float congestionWeight = -1f,
+        float congestionExponent = -1f,
+        float maximumCongestionMultiplier = -1f)
+    {
+        if (route == null)
+            return float.PositiveInfinity;
+
+        float total = 0f;
+        int first =
+            Mathf.Clamp(
+                startIndex,
+                0,
+                route.Count
+            );
+
+        for (int i = first;
+             i < route.Count;
+             i++)
+        {
+            float laneCost =
+                GetRoutingCostSeconds(
+                    route[i],
+                    vehicleTopSpeedKmh,
+                    includeTraffic,
+                    congestionWeight,
+                    congestionExponent,
+                    maximumCongestionMultiplier
+                );
+
+            if (float.IsInfinity(laneCost))
+                return float.PositiveInfinity;
+
+            total += laneCost;
+        }
+
+        return total;
     }
 
     /// <summary>
@@ -293,7 +398,10 @@ public class RoadNetworkManager : MonoBehaviour
         int attempts,
         List<Lane> result,
         out long destinationNode,
-        bool includeTrafficInCost = false)
+        bool includeTrafficInCost = false,
+        float congestionWeight = -1f,
+        float congestionExponent = -1f,
+        float maximumCongestionMultiplier = -1f)
     {
         result.Clear();
         destinationNode = -1;
@@ -333,10 +441,107 @@ public class RoadNetworkManager : MonoBehaviour
                         candidate,
                         vehicleTopSpeedKmh,
                         result,
-                        includeTrafficInCost) &&
+                        includeTrafficInCost,
+                        congestionWeight,
+                        congestionExponent,
+                        maximumCongestionMultiplier) &&
                     result.Count > 0)
                 {
                     destinationNode = candidate;
+                    return true;
+                }
+            }
+        }
+
+        result.Clear();
+        return false;
+    }
+
+    /// <summary>
+    /// Creates a route whose destination is sampled from the configured
+    /// supply/demand model. If the demand model is unavailable or cannot
+    /// provide a reachable endpoint, callers can fall back to random routing.
+    /// </summary>
+    public bool TryCreateDemandRoute(
+        long startNode,
+        float vehicleTopSpeedKmh,
+        float minimumStraightLineDistance,
+        int attempts,
+        List<Lane> result,
+        out long destinationNode,
+        bool includeTrafficInCost = false,
+        float congestionWeight = -1f,
+        float congestionExponent = -1f,
+        float maximumCongestionMultiplier = -1f)
+    {
+        result.Clear();
+        destinationNode = -1;
+
+        if (trafficDemandManager == null ||
+            !trafficDemandManager.useDemandModel ||
+            !nodesById.ContainsKey(startNode))
+        {
+            return false;
+        }
+
+        attempts =
+            Mathf.Max(
+                1,
+                attempts
+            );
+
+        for (int pass = 0;
+             pass < 2;
+             pass++)
+        {
+            float requiredDistance =
+                pass == 0
+                    ? Mathf.Max(
+                        0f,
+                        minimumStraightLineDistance
+                    )
+                    : 0f;
+
+            for (int i = 0;
+                 i < attempts;
+                 i++)
+            {
+                if (!trafficDemandManager
+                    .TryChooseDestinationNode(
+                        startNode,
+                        out long candidate))
+                {
+                    continue;
+                }
+
+                if (candidate == startNode)
+                    continue;
+
+                if (requiredDistance > 0f &&
+                    GetNodeStraightLineDistance(
+                        startNode,
+                        candidate
+                    )
+                    < requiredDistance)
+                {
+                    continue;
+                }
+
+                if (TrafficPathfinder.TryFindRoute(
+                        this,
+                        startNode,
+                        candidate,
+                        vehicleTopSpeedKmh,
+                        result,
+                        includeTrafficInCost,
+                        congestionWeight,
+                        congestionExponent,
+                        maximumCongestionMultiplier) &&
+                    result.Count > 0)
+                {
+                    destinationNode =
+                        candidate;
+
                     return true;
                 }
             }

@@ -125,6 +125,27 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c91fcc5faf3ca7b47bdaaae9e4326659, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AwareTrafficAgent_DeadlockEscape
+  minimumDestinationDistance: 150
+  destinationSearchAttempts: 16
+  debugDestinationNode: -1
+  debugRemainingRouteLanes: 0
+  debugRoutingMode: Static
+  debugLastCurrentRouteCost: -1
+  debugLastAlternativeRouteCost: -1
+  debugLastRerouteGainSeconds: 0
+  debugLastRerouteGainPercent: 0
+  debugSuccessfulReroutes: 0
+  highlightSuccessfulReroutes: 1
+  rerouteHighlightDuration: 10
+  rerouteHighlightColor: {r: 0, g: 1, b: 1, a: 1}
+  showRerouteRouteComparison: 1
+  previousRouteGizmoColor: {r: 1, g: 0, b: 1, a: 1}
+  newRouteGizmoColor: {r: 0, g: 1, b: 0, a: 1}
+  showRouteGizmos: 1
+  routeGizmoHeight: 1.5
+  destinationGizmoRadius: 3
+  showDestinationMarker: 1
+  destinationMarkerHeight: 12
   topSpeedKmh: 43.2
   acceleration: 3
   comfortableDeceleration: 5

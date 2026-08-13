@@ -209,6 +209,8 @@ public class AwareTrafficAgent_LaneUnaware : TrafficAgentBase
             return;
         }
 
+        UpdateDynamicRouting();
+
         if (isTurning)
         {
             UpdateTurnDesiredSpeed();

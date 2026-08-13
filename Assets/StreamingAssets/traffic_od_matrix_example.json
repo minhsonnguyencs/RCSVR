@@ -1,0 +1,178 @@
+{
+  "rows": [
+    {
+      "originZone": "DEFAULT",
+      "destinations": [
+        {
+          "destinationZone": "DEFAULT",
+          "weight": 1.0
+        },
+        {
+          "destinationZone": "Centre",
+          "weight": 1.4
+        },
+        {
+          "destinationZone": "NorthResidential",
+          "weight": 0.8
+        },
+        {
+          "destinationZone": "SouthResidential",
+          "weight": 0.8
+        },
+        {
+          "destinationZone": "Industrial",
+          "weight": 1.0
+        },
+        {
+          "destinationZone": "University",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "originZone": "Centre",
+      "destinations": [
+        {
+          "destinationZone": "DEFAULT",
+          "weight": 0.8
+        },
+        {
+          "destinationZone": "Centre",
+          "weight": 0.3
+        },
+        {
+          "destinationZone": "NorthResidential",
+          "weight": 1.4
+        },
+        {
+          "destinationZone": "SouthResidential",
+          "weight": 1.4
+        },
+        {
+          "destinationZone": "Industrial",
+          "weight": 0.8
+        },
+        {
+          "destinationZone": "University",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "originZone": "NorthResidential",
+      "destinations": [
+        {
+          "destinationZone": "DEFAULT",
+          "weight": 0.5
+        },
+        {
+          "destinationZone": "Centre",
+          "weight": 2.0
+        },
+        {
+          "destinationZone": "NorthResidential",
+          "weight": 0.2
+        },
+        {
+          "destinationZone": "SouthResidential",
+          "weight": 0.5
+        },
+        {
+          "destinationZone": "Industrial",
+          "weight": 1.0
+        },
+        {
+          "destinationZone": "University",
+          "weight": 1.2
+        }
+      ]
+    },
+    {
+      "originZone": "SouthResidential",
+      "destinations": [
+        {
+          "destinationZone": "DEFAULT",
+          "weight": 0.5
+        },
+        {
+          "destinationZone": "Centre",
+          "weight": 2.0
+        },
+        {
+          "destinationZone": "NorthResidential",
+          "weight": 0.5
+        },
+        {
+          "destinationZone": "SouthResidential",
+          "weight": 0.2
+        },
+        {
+          "destinationZone": "Industrial",
+          "weight": 1.0
+        },
+        {
+          "destinationZone": "University",
+          "weight": 1.2
+        }
+      ]
+    },
+    {
+      "originZone": "Industrial",
+      "destinations": [
+        {
+          "destinationZone": "DEFAULT",
+          "weight": 0.7
+        },
+        {
+          "destinationZone": "Centre",
+          "weight": 1.0
+        },
+        {
+          "destinationZone": "NorthResidential",
+          "weight": 1.4
+        },
+        {
+          "destinationZone": "SouthResidential",
+          "weight": 1.4
+        },
+        {
+          "destinationZone": "Industrial",
+          "weight": 0.2
+        },
+        {
+          "destinationZone": "University",
+          "weight": 0.4
+        }
+      ]
+    },
+    {
+      "originZone": "University",
+      "destinations": [
+        {
+          "destinationZone": "DEFAULT",
+          "weight": 0.6
+        },
+        {
+          "destinationZone": "Centre",
+          "weight": 1.5
+        },
+        {
+          "destinationZone": "NorthResidential",
+          "weight": 1.2
+        },
+        {
+          "destinationZone": "SouthResidential",
+          "weight": 1.2
+        },
+        {
+          "destinationZone": "Industrial",
+          "weight": 0.5
+        },
+        {
+          "destinationZone": "University",
+          "weight": 0.3
+        }
+      ]
+    }
+  ]
+}

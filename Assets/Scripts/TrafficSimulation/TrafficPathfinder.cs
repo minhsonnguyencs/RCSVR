@@ -89,7 +89,10 @@ public static class TrafficPathfinder
         long goalNode,
         float vehicleTopSpeedKmh,
         List<Lane> result,
-        bool includeTrafficInCost = false)
+        bool includeTrafficInCost = false,
+        float congestionWeight = -1f,
+        float congestionExponent = -1f,
+        float maximumCongestionMultiplier = -1f)
     {
         result.Clear();
 
@@ -158,7 +161,10 @@ public static class TrafficPathfinder
                 float edgeCost = network.GetRoutingCostSeconds(
                     lane,
                     vehicleTopSpeedKmh,
-                    includeTrafficInCost
+                    includeTrafficInCost,
+                    congestionWeight,
+                    congestionExponent,
+                    maximumCongestionMultiplier
                 );
 
                 if (float.IsInfinity(edgeCost))

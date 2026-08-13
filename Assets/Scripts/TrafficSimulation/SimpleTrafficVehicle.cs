@@ -103,6 +103,8 @@ public class SimpleTrafficVehicle : TrafficAgentBase
             return;
         }
 
+        UpdateDynamicRouting();
+
         if (isTurning)
         {
             MoveAlongTurnPath();
