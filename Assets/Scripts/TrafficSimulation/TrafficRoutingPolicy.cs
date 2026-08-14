@@ -3,15 +3,26 @@ using UnityEngine;
 
 public enum TrafficRoutingMode
 {
+    Random,
     Static,
     TrafficAware
 }
 
 /// <summary>
 /// Global routing policy shared by all spawned vehicles.
-/// Static mode uses free-flow A* and never reroutes for congestion.
-/// TrafficAware mode uses occupancy-weighted A* and periodically evaluates
-/// whether the current route should be replaced by a meaningfully faster one.
+///
+/// Random:
+/// - no destination is generated
+/// - every intersection chooses a random valid outgoing lane
+/// - immediate U-turns are avoided unless the road is a dead end
+///
+/// Static:
+/// - free-flow A* destination routing
+/// - no congestion rerouting
+///
+/// TrafficAware:
+/// - occupancy-weighted A*
+/// - periodic beneficial rerouting to the same destination
 /// </summary>
 [Serializable]
 public class TrafficRoutingPolicy

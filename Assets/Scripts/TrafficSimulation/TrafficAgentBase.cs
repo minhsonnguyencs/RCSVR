@@ -6,6 +6,7 @@ using UnityEngine;
 /// Concrete movement/following/intersection behavior remains in subclasses.
 ///
 /// Routing policy is global on RoadNetworkManager:
+/// - Random: choose a random valid outgoing lane at every intersection.
 /// - Static: free-flow A*, no congestion rerouting.
 /// - TrafficAware: occupancy-weighted A* plus periodic beneficial rerouting.
 ///
@@ -62,6 +63,14 @@ public abstract class TrafficAgentBase : MonoBehaviour
     private long destinationNode = -1;
     private long pendingDestinationNode = -1;
     private float nextRerouteEvaluationTime = float.PositiveInfinity;
+
+    /*
+     * Tracks runtime changes of RoadNetworkManager.routingPolicy.mode.
+     * This lets the simulation switch between Random / Static / TrafficAware
+     * without respawning the vehicles.
+     */
+    private TrafficRoutingMode lastObservedRoutingMode =
+        TrafficRoutingMode.Static;
 
     private Renderer[] rerouteHighlightRenderers;
     private MaterialPropertyBlock rerouteHighlightPropertyBlock;
@@ -160,8 +169,13 @@ public abstract class TrafficAgentBase : MonoBehaviour
         RestoreRerouteHighlight();
         CacheRerouteHighlightRenderers();
 
+        lastObservedRoutingMode =
+            GetCurrentRoutingMode();
+
         if (routingNetwork != null &&
-            startingLane != null)
+            startingLane != null &&
+            lastObservedRoutingMode !=
+                TrafficRoutingMode.Random)
         {
             PlanNewDestination(
                 startingLane.endNode
@@ -183,23 +197,53 @@ public abstract class TrafficAgentBase : MonoBehaviour
         UpdateRerouteHighlight();
 
         if (routingNetwork == null ||
-            CurrentLane == null ||
-            destinationNode < 0)
+            CurrentLane == null)
         {
             return;
         }
+
+        SynchronizeRoutingModeIfNeeded();
 
         TrafficRoutingPolicy policy =
             routingNetwork.routingPolicy;
 
-        if (policy == null ||
-            policy.mode != TrafficRoutingMode.TrafficAware)
+        TrafficRoutingMode mode =
+            GetCurrentRoutingMode();
+
+        debugRoutingMode =
+            mode.ToString();
+
+        /*
+         * Random mode deliberately has no destination and no A* work.
+         */
+        if (mode ==
+            TrafficRoutingMode.Random)
         {
-            debugRoutingMode = "Static";
             return;
         }
 
-        debugRoutingMode = "TrafficAware";
+        if (destinationNode < 0)
+        {
+            /*
+             * This can happen when switching from Random back to a routed mode
+             * while the concrete controller has already reserved its next lane.
+             * Wait until it is safe to create a new route.
+             */
+            if (PlannedNextLane == null)
+            {
+                PlanNewDestination(
+                    CurrentLane.endNode
+                );
+            }
+
+            return;
+        }
+
+        if (policy == null ||
+            mode != TrafficRoutingMode.TrafficAware)
+        {
+            return;
+        }
 
         if (Time.time <
             nextRerouteEvaluationTime)
@@ -530,6 +574,20 @@ public abstract class TrafficAgentBase : MonoBehaviour
             return null;
         }
 
+        SynchronizeRoutingModeIfNeeded();
+
+        if (GetCurrentRoutingMode() ==
+            TrafficRoutingMode.Random)
+        {
+            Lane randomLane =
+                ChooseRandomOutgoingLane(
+                    currentLane
+                );
+
+            RefreshRoutingDebug();
+            return randomLane;
+        }
+
         long intersectionNode =
             currentLane.endNode;
 
@@ -594,6 +652,15 @@ public abstract class TrafficAgentBase : MonoBehaviour
         if (previousLane == null)
             return;
 
+        SynchronizeRoutingModeIfNeeded();
+
+        if (GetCurrentRoutingMode() ==
+            TrafficRoutingMode.Random)
+        {
+            RefreshRoutingDebug();
+            return;
+        }
+
         if (pendingDestinationNode >= 0 &&
             previousLane.endNode ==
                 destinationNode)
@@ -608,9 +675,174 @@ public abstract class TrafficAgentBase : MonoBehaviour
         }
     }
 
+    private TrafficRoutingMode GetCurrentRoutingMode()
+    {
+        if (routingNetwork == null ||
+            routingNetwork.routingPolicy == null)
+        {
+            return TrafficRoutingMode.Static;
+        }
+
+        return
+            routingNetwork
+                .routingPolicy
+                .mode;
+    }
+
+
+    private void SynchronizeRoutingModeIfNeeded()
+    {
+        TrafficRoutingMode currentMode =
+            GetCurrentRoutingMode();
+
+        if (currentMode ==
+            lastObservedRoutingMode)
+        {
+            return;
+        }
+
+        lastObservedRoutingMode =
+            currentMode;
+
+        /*
+         * A routing-mode switch invalidates the previous interpretation of
+         * plannedRoute. Clear it rather than mixing a previously generated
+         * A* path with random movement.
+         */
+        plannedRoute.Clear();
+        rerouteCandidate.Clear();
+        previousRouteSnapshot.Clear();
+
+        routeCursor = 0;
+        destinationNode = -1;
+        pendingDestinationNode = -1;
+
+        RestoreRerouteHighlight();
+
+        debugLastCurrentRouteCost = -1f;
+        debugLastAlternativeRouteCost = -1f;
+        debugLastRerouteGainSeconds = 0f;
+        debugLastRerouteGainPercent = 0f;
+
+        if (currentMode ==
+            TrafficRoutingMode.Random)
+        {
+            nextRerouteEvaluationTime =
+                float.PositiveInfinity;
+
+            RefreshRoutingDebug();
+            return;
+        }
+
+        ScheduleNextRerouteEvaluation();
+
+        /*
+         * If a concrete controller has not yet committed to an outgoing lane,
+         * routing can restart immediately. Otherwise ChoosePathfindingNextLane
+         * will generate a fresh destination at the next junction.
+         */
+        if (routingNetwork != null &&
+            CurrentLane != null &&
+            PlannedNextLane == null)
+        {
+            PlanNewDestination(
+                CurrentLane.endNode
+            );
+        }
+
+        RefreshRoutingDebug();
+    }
+
+
+    private Lane ChooseRandomOutgoingLane(
+        Lane currentLane)
+    {
+        if (routingNetwork == null ||
+            currentLane == null)
+        {
+            return null;
+        }
+
+        long intersectionNode =
+            currentLane.endNode;
+
+        if (!routingNetwork.lanesFromNode.TryGetValue(
+                intersectionNode,
+                out List<Lane> candidates) ||
+            candidates == null ||
+            candidates.Count == 0)
+        {
+            return null;
+        }
+
+        /*
+         * Preserve the behavior of the pre-pathfinding traffic agents:
+         * avoid immediately travelling back to the node we just came from.
+         * At a true dead end, allow the U-turn so the vehicle does not stop.
+         */
+        List<Lane> validCandidates =
+            new List<Lane>();
+
+        for (int i = 0;
+             i < candidates.Count;
+             i++)
+        {
+            Lane candidate =
+                candidates[i];
+
+            if (candidate == null)
+                continue;
+
+            if (candidate.endNode !=
+                currentLane.startNode)
+            {
+                validCandidates.Add(
+                    candidate
+                );
+            }
+        }
+
+        List<Lane> selectionPool =
+            validCandidates.Count > 0
+                ? validCandidates
+                : candidates;
+
+        /*
+         * candidates should normally contain no nulls, but select defensively
+         * in case a malformed graph produces one.
+         */
+        int attempts =
+            selectionPool.Count;
+
+        while (attempts > 0)
+        {
+            Lane selected =
+                selectionPool[
+                    Random.Range(
+                        0,
+                        selectionPool.Count
+                    )
+                ];
+
+            if (selected != null)
+                return selected;
+
+            attempts--;
+        }
+
+        return null;
+    }
+
+
     private bool PlanPendingDestination(
         long startNode)
     {
+        if (GetCurrentRoutingMode() ==
+            TrafficRoutingMode.Random)
+        {
+            return false;
+        }
+
         plannedRoute.Clear();
         routeCursor = 0;
         pendingDestinationNode = -1;
@@ -643,6 +875,14 @@ public abstract class TrafficAgentBase : MonoBehaviour
     public bool ReplanRoute(
         bool includeTrafficInCost = false)
     {
+        SynchronizeRoutingModeIfNeeded();
+
+        if (GetCurrentRoutingMode() ==
+            TrafficRoutingMode.Random)
+        {
+            return false;
+        }
+
         if (routingNetwork == null ||
             CurrentLane == null ||
             destinationNode < 0)
@@ -674,6 +914,17 @@ public abstract class TrafficAgentBase : MonoBehaviour
         bool? includeTrafficOverride = null,
         long preferredDestination = -1)
     {
+        if (GetCurrentRoutingMode() ==
+            TrafficRoutingMode.Random)
+        {
+            plannedRoute.Clear();
+            routeCursor = 0;
+            destinationNode = -1;
+            pendingDestinationNode = -1;
+            RefreshRoutingDebug();
+            return false;
+        }
+
         plannedRoute.Clear();
         routeCursor = 0;
         pendingDestinationNode = -1;
@@ -841,7 +1092,9 @@ public abstract class TrafficAgentBase : MonoBehaviour
         if (!showRouteGizmos ||
             !Application.isPlaying ||
             routingNetwork == null ||
-            CurrentLane == null)
+            CurrentLane == null ||
+            GetCurrentRoutingMode() ==
+                TrafficRoutingMode.Random)
         {
             return;
         }
