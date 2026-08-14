@@ -32,6 +32,10 @@ public class RoadNetworkManager : MonoBehaviour
     [Tooltip("Optional demand manager. When assigned and enabled, initial spawn locations and trip destinations use its zone/OD model.")]
     public TrafficDemandManager trafficDemandManager;
 
+    [Header("Traffic Lights")]
+    [Tooltip("Optional procedural traffic-light system. It is rebuilt automatically whenever the road JSON is reloaded.")]
+    public TrafficLightSystem trafficLightSystem;
+
     public RoadGraphData graph;
 
     public Dictionary<long, RoadNodeData> nodesById =
@@ -57,6 +61,9 @@ public class RoadNetworkManager : MonoBehaviour
 
         if (trafficDemandManager == null)
             trafficDemandManager = FindObjectOfType<TrafficDemandManager>();
+
+        if (trafficLightSystem == null)
+            trafficLightSystem = FindObjectOfType<TrafficLightSystem>();
 
         LoadGraphFromConfiguredFile(false);
     }
@@ -168,6 +175,9 @@ public class RoadNetworkManager : MonoBehaviour
 
         graph = loadedGraph;
         BuildLaneGraph();
+
+        if (trafficLightSystem != null)
+            trafficLightSystem.RebuildFromNetwork(this);
 
         if (trafficDemandManager != null)
             trafficDemandManager.RebuildNetworkCache(this);

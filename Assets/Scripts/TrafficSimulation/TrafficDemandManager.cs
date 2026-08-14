@@ -59,10 +59,28 @@ public class TrafficDemandManager : MonoBehaviour
     public List<TrafficDemandZone> zones = new List<TrafficDemandZone>();
 
     [Header("Scene visualization")]
+    [Tooltip("Draw supply/demand zone boundaries and centers in the Scene view.")]
     public bool showZoneGizmos = true;
 
-    [Tooltip("Vertical offset in world metres used when drawing zone outlines and labels in the Scene view.")]
+    [Tooltip("Vertical world-space offset used for zone boundaries and center markers.")]
     public float gizmoHeightOffset = 5f;
+
+    [Tooltip("Number of straight line segments used to approximate each circular zone.")]
+    [Range(16, 128)]
+    public int gizmoCircleSegments = 64;
+
+    [Tooltip("Radius of the small center marker drawn for each zone.")]
+    [Min(0.1f)]
+    public float gizmoCenterMarkerRadius = 2f;
+
+    [Tooltip("Force zone gizmos to full opacity even if the stored zone color has a lower alpha.")]
+    public bool forceOpaqueGizmos = true;
+
+    [Tooltip("Show zone names and supply/demand weights next to the zone centers in the Scene view.")]
+    public bool showZoneLabels = true;
+
+    [Tooltip("World-space offset of the label relative to the zone center marker.")]
+    public Vector3 gizmoLabelOffset = new Vector3(2f, 2f, 2f);
 
     public Color defaultZoneInfoColor = new Color(0.7f, 0.7f, 0.7f, 1f);
 
@@ -588,10 +606,19 @@ public class TrafficDemandManager : MonoBehaviour
 
     private void OnDrawGizmos()
     {
-        if (!showZoneGizmos || zones == null)
+        if (!showZoneGizmos ||
+            zones == null)
+        {
             return;
+        }
 
-#if UNITY_EDITOR
+        int segments =
+            Mathf.Clamp(
+                gizmoCircleSegments,
+                16,
+                128
+            );
+
         foreach (TrafficDemandZone zone in zones)
         {
             if (zone == null ||
@@ -601,63 +628,148 @@ public class TrafficDemandManager : MonoBehaviour
                 continue;
             }
 
+            Color drawColor =
+                zone.gizmoColor;
+
+            if (forceOpaqueGizmos)
+            {
+                drawColor.a = 1f;
+            }
+
+            Gizmos.color =
+                drawColor;
+
             Vector3 center =
                 zone.center.position
                 + Vector3.up
                 * gizmoHeightOffset;
 
-            /*
-             * Handles.DrawWireDisc is considerably easier to see in the
-             * Scene view than a circle assembled from thin Gizmos.DrawLine
-             * segments, especially over dense road/building geometry.
-             */
-            Handles.color =
-                zone.gizmoColor;
-
-            Handles.DrawWireDisc(
+            DrawZoneCircle(
                 center,
-                Vector3.up,
-                zone.radius
+                zone.radius,
+                segments
+            );
+
+            Gizmos.DrawWireSphere(
+                center,
+                gizmoCenterMarkerRadius
             );
 
             /*
-             * Small center marker so the zone's origin remains obvious.
+             * Cross marker makes the exact center obvious even at large
+             * Scene-view zoom levels.
              */
-            float centerMarkerRadius =
+            float crossSize =
                 Mathf.Max(
-                    1f,
-                    zone.radius * 0.025f
+                    gizmoCenterMarkerRadius,
+                    0.5f
                 );
 
-            Handles.DrawWireDisc(
-                center,
-                Vector3.up,
-                centerMarkerRadius
+            Gizmos.DrawLine(
+                center
+                - Vector3.right
+                * crossSize,
+                center
+                + Vector3.right
+                * crossSize
             );
 
-            Handles.Label(
-                center + Vector3.up * 2f,
-                $"{zone.zoneName}\n" +
-                $"Supply {zone.supplyWeight:0.##} | " +
-                $"Demand {zone.demandWeight:0.##}"
+            Gizmos.DrawLine(
+                center
+                - Vector3.forward
+                * crossSize,
+                center
+                + Vector3.forward
+                * crossSize
             );
+
+
+#if UNITY_EDITOR
+            if (showZoneLabels)
+            {
+                GUIStyle labelStyle =
+                    new GUIStyle(
+                        EditorStyles.boldLabel
+                    );
+
+                Color labelColor =
+                    drawColor;
+
+                labelColor.a = 1f;
+                labelStyle.normal.textColor =
+                    labelColor;
+
+                string label =
+                    zone.zoneName
+                    + "\nSupply: "
+                    + zone.supplyWeight.ToString("0.##")
+                    + "   Demand: "
+                    + zone.demandWeight.ToString("0.##");
+
+                Handles.Label(
+                    center
+                    + gizmoLabelOffset,
+                    label,
+                    labelStyle
+                );
+            }
+#endif
+        }
+    }
+
+
+    private void DrawZoneCircle(
+        Vector3 center,
+        float radius,
+        int segments)
+    {
+        if (radius <= 0f ||
+            segments < 3)
+        {
+            return;
         }
 
-        Handles.color =
-            defaultZoneInfoColor;
+        float angleStep =
+            Mathf.PI
+            * 2f
+            / segments;
 
-        Handles.Label(
-            transform.position
-            + Vector3.up
-            * Mathf.Max(
-                4f,
-                gizmoHeightOffset
-            ),
-            $"Outside circles = {DefaultZoneName}\n" +
-            $"Supply {defaultSupplyWeight:0.##} | " +
-            $"Demand {defaultDemandWeight:0.##}"
-        );
-#endif
+        Vector3 previous =
+            center
+            + new Vector3(
+                Mathf.Cos(0f)
+                * radius,
+                0f,
+                Mathf.Sin(0f)
+                * radius
+            );
+
+        for (int i = 1;
+             i <= segments;
+             i++)
+        {
+            float angle =
+                angleStep
+                * i;
+
+            Vector3 next =
+                center
+                + new Vector3(
+                    Mathf.Cos(angle)
+                    * radius,
+                    0f,
+                    Mathf.Sin(angle)
+                    * radius
+                );
+
+            Gizmos.DrawLine(
+                previous,
+                next
+            );
+
+            previous =
+                next;
+        }
     }
 
 }

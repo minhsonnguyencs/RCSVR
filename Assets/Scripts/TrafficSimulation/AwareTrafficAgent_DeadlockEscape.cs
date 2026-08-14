@@ -65,6 +65,14 @@ public class AwareTrafficAgent_DeadlockEscape : TrafficAgentBase
     public float minimumGap = 3f;
     public float timeHeadway = 1.3f;
 
+    [Header("Collision Safety")]
+    [Tooltip("Final positional safeguard. The vehicle is never allowed to move closer than this clear gap behind a same-stream leader.")]
+    public bool enableHardSafetyClamp = true;
+
+    [Tooltip("Hard clear gap in metres, beyond vehicleLength. This is a last-resort anti-overlap clamp, not the normal following gap.")]
+    [Min(0f)]
+    public float hardMinimumGap = 0.25f;
+
     [Tooltip("Small tolerance used when two agents are at essentially the same lane position. "
            + "A deterministic tie-break prevents both agents from treating the other as 'behind'.")]
     public float progressTieTolerance = 0.1f;
@@ -101,6 +109,7 @@ public class AwareTrafficAgent_DeadlockEscape : TrafficAgentBase
     public bool debugOutgoingLaneClear = true;
     public bool debugDeadlockEscapeActive = false;
     public float debugStationaryTime = 0f;
+    public bool debugWaitingForGreenSignal = false;
 
     private RoadNetworkManager network;
     private IntersectionManager intersectionManager;
@@ -238,6 +247,7 @@ public class AwareTrafficAgent_DeadlockEscape : TrafficAgentBase
         debugDesiredSpeed = desiredSpeed;
         debugDeadlockEscapeActive = IsDeadlockEscapeActive();
         debugStationaryTime = stationaryTimer;
+        debugWaitingForGreenSignal = IsWaitingForTrafficSignal();
     }
 
 
@@ -309,7 +319,10 @@ public class AwareTrafficAgent_DeadlockEscape : TrafficAgentBase
          */
         if (registeredAtIntersection &&
             !insideIntersection &&
-            !IsDeadlockEscapeActive())
+            (
+                !IsDeadlockEscapeActive()
+                || !IsTrafficSignalCurrentlyPermittingEntry()
+            ))
         {
             debugIntersectionAllowed =
                 intersectionManager == null
@@ -367,13 +380,27 @@ public class AwareTrafficAgent_DeadlockEscape : TrafficAgentBase
          */
         if (IsDeadlockEscapeActive())
         {
-            desiredSpeed =
-                IsDangerouslyBlockedAhead()
-                    ? 0f
-                    : Mathf.Min(
-                        cruiseSpeed,
-                        deadlockEscapeSpeed
-                    );
+            bool signalPermitsEntry =
+                insideIntersection
+                || !registeredAtIntersection
+                || IsTrafficSignalCurrentlyPermittingEntry();
+
+            /*
+             * Deadlock escape may override ordinary unsignalized priority and
+             * outgoing-lane blocking, but it never overrides a red/yellow
+             * traffic signal. If the signal is not green, preserve the
+             * stop-line braking speed calculated above.
+             */
+            if (signalPermitsEntry)
+            {
+                desiredSpeed =
+                    IsDangerouslyBlockedAhead()
+                        ? 0f
+                        : Mathf.Min(
+                            cruiseSpeed,
+                            deadlockEscapeSpeed
+                        );
+            }
         }
         else
         {
@@ -432,36 +459,82 @@ public class AwareTrafficAgent_DeadlockEscape : TrafficAgentBase
         detectedGap = -1f;
         detectedVehicle = "None";
 
-        if (!insideIntersection ||
-            intersectionManager == null ||
-            activeIntersectionNode < 0)
+        if (!insideIntersection)
+            return cruiseSpeed;
+
+        TrafficAgentBase leader = null;
+        float centreDistance = float.PositiveInfinity;
+
+        /*
+         * First preference: a vehicle that is still on the exact same
+         * intersection movement.
+         */
+        if (intersectionManager != null &&
+            activeIntersectionNode >= 0)
+        {
+            leader =
+                intersectionManager
+                    .GetSameMovementLeaderInside(
+                        activeIntersectionNode,
+                        this
+                    );
+        }
+
+        if (leader != null)
+        {
+            AwareTrafficAgent_DeadlockEscape typedLeader =
+                leader as AwareTrafficAgent_DeadlockEscape;
+
+            if (typedLeader != null &&
+                typedLeader.insideIntersection)
+            {
+                centreDistance =
+                    Mathf.Max(
+                        0f,
+                        typedLeader
+                            .GetIntersectionConnectorProgress()
+                        - GetIntersectionConnectorProgress()
+                    );
+            }
+            else
+            {
+                Vector3 separation =
+                    leader.transform.position
+                    - transform.position;
+
+                separation.y = 0f;
+                centreDistance = separation.magnitude;
+            }
+        }
+        else
+        {
+            /*
+             * Critical transition bridge:
+             *
+             * As soon as the leading car finishes the connector it disappears
+             * from IntersectionManager and becomes an ordinary occupant of the
+             * outgoing lane. Treat that car as the SAME longitudinal stream
+             * instead of suddenly declaring the outgoing lane blocked.
+             */
+            leader =
+                GetNearestOutgoingLaneLeader();
+
+            if (leader != null)
+            {
+                centreDistance =
+                    GetCentreDistanceToOutgoingLeader(
+                        leader,
+                        true
+                    );
+            }
+        }
+
+        if (leader == null ||
+            float.IsPositiveInfinity(
+                centreDistance))
         {
             return cruiseSpeed;
         }
-
-        TrafficAgentBase leader =
-            intersectionManager
-                .GetSameMovementLeaderInside(
-                    activeIntersectionNode,
-                    this
-                );
-
-        if (leader == null)
-            return cruiseSpeed;
-
-        /*
-         * Vehicles in one movement follow nearly the same connector, so their
-         * centre-to-centre world distance is a good approximation of the
-         * longitudinal separation while inside the intersection.
-         */
-        Vector3 separation =
-            leader.transform.position
-            - transform.position;
-
-        separation.y = 0f;
-
-        float centreDistance =
-            separation.magnitude;
 
         float gap =
             Mathf.Max(
@@ -507,6 +580,440 @@ public class AwareTrafficAgent_DeadlockEscape : TrafficAgentBase
     }
 
 
+    public float GetIntersectionConnectorProgress()
+    {
+        if (!isTurning ||
+            turnPath == null ||
+            turnPath.Count < 2)
+        {
+            return 0f;
+        }
+
+        int segmentEnd =
+            Mathf.Clamp(
+                turnPathIndex,
+                1,
+                turnPath.Count - 1
+            );
+
+        int segmentStart =
+            segmentEnd - 1;
+
+        float progress = 0f;
+
+        for (int i = 0;
+             i < segmentStart;
+             i++)
+        {
+            progress +=
+                Vector3.Distance(
+                    turnPath[i],
+                    turnPath[i + 1]
+                );
+        }
+
+        Vector3 a =
+            turnPath[segmentStart];
+
+        Vector3 b =
+            turnPath[segmentEnd];
+
+        Vector3 p =
+            transform.position;
+
+        a.y = 0f;
+        b.y = 0f;
+        p.y = 0f;
+
+        Vector3 ab =
+            b - a;
+
+        float denominator =
+            Vector3.Dot(
+                ab,
+                ab
+            );
+
+        if (denominator >
+            0.00001f)
+        {
+            float t =
+                Mathf.Clamp01(
+                    Vector3.Dot(
+                        p - a,
+                        ab
+                    )
+                    / denominator
+                );
+
+            progress +=
+                ab.magnitude
+                * t;
+        }
+
+        return progress;
+    }
+
+
+    private TrafficAgentBase GetNearestOutgoingLaneLeader()
+    {
+        if (nextLane == null ||
+            network == null ||
+            network.occupancyManager == null)
+        {
+            return null;
+        }
+
+        /*
+         * The requester is not yet registered on nextLane, so using a small
+         * negative progress finds the first active vehicle from the lane start.
+         */
+        return
+            network.occupancyManager
+                .FindNearestAhead(
+                    nextLane,
+                    this,
+                    -1f,
+                    progressTieTolerance
+                );
+    }
+
+
+    private float GetActualOutgoingMergeProgress()
+    {
+        if (nextLane == null)
+            return 0f;
+
+        return Mathf.Min(
+            turnEndDistance,
+            nextLane.totalLength
+            * 0.45f
+        );
+    }
+
+
+    private float GetPathLength(
+        List<Vector3> path)
+    {
+        if (path == null ||
+            path.Count < 2)
+        {
+            return 0f;
+        }
+
+        float length = 0f;
+
+        for (int i = 0;
+             i < path.Count - 1;
+             i++)
+        {
+            length +=
+                Vector3.Distance(
+                    path[i],
+                    path[i + 1]
+                );
+        }
+
+        return length;
+    }
+
+
+    private float GetRemainingConnectorDistance()
+    {
+        if (!isTurning ||
+            turnPath == null ||
+            turnPath.Count < 2)
+        {
+            return 0f;
+        }
+
+        return Mathf.Max(
+            0f,
+            GetPathLength(turnPath)
+            - GetIntersectionConnectorProgress()
+        );
+    }
+
+
+    private float GetCentreDistanceToOutgoingLeader(
+        TrafficAgentBase leader,
+        bool fromCurrentConnectorPosition)
+    {
+        if (leader == null ||
+            nextLane == null)
+        {
+            return float.PositiveInfinity;
+        }
+
+        float mergeProgress =
+            GetActualOutgoingMergeProgress();
+
+        float leaderBeyondMerge =
+            Mathf.Max(
+                0f,
+                leader.CurrentLaneProgress
+                - mergeProgress
+            );
+
+        float connectorDistance;
+
+        if (fromCurrentConnectorPosition &&
+            isTurning)
+        {
+            connectorDistance =
+                GetRemainingConnectorDistance();
+        }
+        else
+        {
+            /*
+             * Before connector entry, build the same final-style connector
+             * from the car's current position. This measures the actual
+             * longitudinal stream distance rather than looking only at the
+             * leader's small outgoing-lane progress value.
+             */
+            List<Vector3> preview =
+                BuildTurnPathPreview(
+                    nextLane
+                );
+
+            connectorDistance =
+                GetPathLength(
+                    preview
+                );
+        }
+
+        return
+            connectorDistance
+            + leaderBeyondMerge;
+    }
+
+
+    private bool HasSafeSpaceToEnterSameMovementConnector()
+    {
+        if (!enableHardSafetyClamp)
+            return true;
+
+        TrafficAgentBase leader = null;
+        float centreDistance = float.PositiveInfinity;
+
+        /*
+         * Prefer an identical movement that is still physically inside.
+         */
+        if (intersectionManager != null &&
+            activeIntersectionNode >= 0)
+        {
+            leader =
+                intersectionManager
+                    .GetSameMovementLeaderInside(
+                        activeIntersectionNode,
+                        this
+                    );
+        }
+
+        if (leader != null)
+        {
+            AwareTrafficAgent_DeadlockEscape typedLeader =
+                leader as AwareTrafficAgent_DeadlockEscape;
+
+            if (typedLeader != null &&
+                typedLeader.insideIntersection)
+            {
+                centreDistance =
+                    typedLeader
+                        .GetIntersectionConnectorProgress();
+            }
+            else
+            {
+                Vector3 delta =
+                    leader.transform.position
+                    - transform.position;
+
+                delta.y = 0f;
+                centreDistance = delta.magnitude;
+            }
+        }
+        else
+        {
+            /*
+             * If the previous car has just left the connector, continue the
+             * same-stream spacing check against it on the outgoing lane.
+             */
+            leader =
+                GetNearestOutgoingLaneLeader();
+
+            if (leader != null)
+            {
+                centreDistance =
+                    GetCentreDistanceToOutgoingLeader(
+                        leader,
+                        false
+                    );
+            }
+        }
+
+        if (leader == null)
+            return true;
+
+        /*
+         * Use the normal stationary following gap for connector admission.
+         * The 0.25 m hardMinimumGap remains only the final geometric floor.
+         */
+        return
+            centreDistance
+            >= vehicleLength
+            + minimumGap;
+    }
+
+
+    private float GetHardClampedLaneSpeed(
+        float requestedSpeed)
+    {
+        if (!enableHardSafetyClamp ||
+            Time.deltaTime <= 0f ||
+            network == null ||
+            network.occupancyManager == null ||
+            currentLane == null ||
+            isTurning)
+        {
+            return requestedSpeed;
+        }
+
+        float myProgress =
+            GetProgressOnCurrentLane();
+
+        TrafficAgentBase leader =
+            network.occupancyManager
+                .FindNearestAhead(
+                    currentLane,
+                    this,
+                    myProgress,
+                    progressTieTolerance
+                );
+
+        if (leader == null)
+            return requestedSpeed;
+
+        float centreDistance =
+            Mathf.Max(
+                0f,
+                leader.CurrentLaneProgress
+                - myProgress
+            );
+
+        float availableMovement =
+            centreDistance
+            - vehicleLength
+            - Mathf.Max(
+                0f,
+                hardMinimumGap
+            );
+
+        if (availableMovement <= 0f)
+            return 0f;
+
+        float maximumSafeSpeed =
+            availableMovement
+            / Time.deltaTime;
+
+        return Mathf.Min(
+            requestedSpeed,
+            maximumSafeSpeed
+        );
+    }
+
+
+    private float GetHardClampedConnectorMovementDistance(
+        float requestedDistance)
+    {
+        if (!enableHardSafetyClamp ||
+            requestedDistance <= 0f)
+        {
+            return requestedDistance;
+        }
+
+        TrafficAgentBase leader = null;
+        float centreDistance = float.PositiveInfinity;
+
+        if (intersectionManager != null &&
+            activeIntersectionNode >= 0)
+        {
+            leader =
+                intersectionManager
+                    .GetSameMovementLeaderInside(
+                        activeIntersectionNode,
+                        this
+                    );
+        }
+
+        if (leader != null)
+        {
+            AwareTrafficAgent_DeadlockEscape typedLeader =
+                leader as AwareTrafficAgent_DeadlockEscape;
+
+            if (typedLeader != null &&
+                typedLeader.insideIntersection)
+            {
+                centreDistance =
+                    typedLeader
+                        .GetIntersectionConnectorProgress()
+                    - GetIntersectionConnectorProgress();
+            }
+            else
+            {
+                Vector3 separation =
+                    leader.transform.position
+                    - transform.position;
+
+                separation.y = 0f;
+                centreDistance = separation.magnitude;
+            }
+        }
+        else
+        {
+            /*
+             * Continue protecting spacing after the leader transitions to the
+             * outgoing lane. Previously the clamp lost sight of it at exactly
+             * this boundary.
+             */
+            leader =
+                GetNearestOutgoingLaneLeader();
+
+            if (leader != null)
+            {
+                centreDistance =
+                    GetCentreDistanceToOutgoingLeader(
+                        leader,
+                        true
+                    );
+            }
+        }
+
+        if (leader == null ||
+            float.IsPositiveInfinity(
+                centreDistance))
+        {
+            return requestedDistance;
+        }
+
+        float availableMovement =
+            centreDistance
+            - vehicleLength
+            - Mathf.Max(
+                0f,
+                hardMinimumGap
+            );
+
+        return Mathf.Clamp(
+            requestedDistance,
+            0f,
+            Mathf.Max(
+                0f,
+                availableMovement
+            )
+        );
+    }
+
+
     private void UpdateCurrentSpeed()
     {
         if (currentSpeed <
@@ -548,7 +1055,10 @@ public class AwareTrafficAgent_DeadlockEscape : TrafficAgentBase
          */
         if (registeredAtIntersection &&
             !insideIntersection &&
-            !IsDeadlockEscapeActive())
+            (
+                !IsDeadlockEscapeActive()
+                || !IsTrafficSignalCurrentlyPermittingEntry()
+            ))
         {
             bool intersectionAllowed =
                 intersectionManager == null
@@ -599,6 +1109,7 @@ public class AwareTrafficAgent_DeadlockEscape : TrafficAgentBase
             {
                 bool forceThrough =
                     IsDeadlockEscapeActive()
+                    && IsTrafficSignalCurrentlyPermittingEntry()
                     && !IsDangerouslyBlockedAhead();
 
                 bool intersectionAllowed =
@@ -615,8 +1126,12 @@ public class AwareTrafficAgent_DeadlockEscape : TrafficAgentBase
                         nextLane
                     );
 
+                bool connectorEntryClear =
+                    HasSafeSpaceToEnterSameMovementConnector();
+
                 if (intersectionAllowed &&
-                    outgoingClear)
+                    outgoingClear &&
+                    connectorEntryClear)
                 {
                     BeginTurn();
                     return;
@@ -650,9 +1165,14 @@ public class AwareTrafficAgent_DeadlockEscape : TrafficAgentBase
             return;
         }
 
+        float hardClampedSpeed =
+            GetHardClampedLaneSpeed(
+                currentSpeed
+            );
+
         MoveToward(
             target,
-            currentSpeed,
+            hardClampedSpeed,
             normalRotationSpeed
         );
     }
@@ -725,7 +1245,10 @@ public class AwareTrafficAgent_DeadlockEscape : TrafficAgentBase
          * curve segments, so there is no pause/jerk when a waypoint is reached.
          */
         float movementRemaining =
-            currentSpeed * Time.deltaTime;
+            GetHardClampedConnectorMovementDistance(
+                currentSpeed
+                * Time.deltaTime
+            );
 
         Vector3 lastDirection =
             transform.forward;
@@ -905,9 +1428,26 @@ public class AwareTrafficAgent_DeadlockEscape : TrafficAgentBase
     private void UpdateDeadlockEscapeState()
     {
         /*
-         * Count only genuine stationary time. This deliberately does not try
-         * to diagnose WHY the vehicle is stopped: the escape mechanism is a
-         * last-resort recovery rule.
+         * Waiting for a red/yellow/all-red traffic signal is intentional,
+         * not a deadlock. Do not accumulate impatience in that state.
+         *
+         * If an escape window was already active when the signal changed,
+         * cancel it immediately. Once the light becomes green again, the
+         * stationary timer starts fresh from zero. Therefore a genuine
+         * post-green deadlock can still trigger the normal escape mechanism
+         * after deadlockTimeout seconds.
+         */
+        if (IsWaitingForTrafficSignal())
+        {
+            stationaryTimer = 0f;
+            deadlockEscapeTimer = 0f;
+            return;
+        }
+
+        /*
+         * Count only stationary time that is NOT explained by a traffic light.
+         * The escape mechanism still deliberately avoids diagnosing every
+         * possible unsignalized deadlock cause.
          */
         if (currentSpeed <= stationarySpeedThreshold)
         {
@@ -944,9 +1484,47 @@ public class AwareTrafficAgent_DeadlockEscape : TrafficAgentBase
     }
 
 
+    private bool IsWaitingForTrafficSignal()
+    {
+        /*
+         * IsTrafficSignalCurrentlyPermittingEntry() returns true at an
+         * unsignalized intersection, so this becomes true only for an
+         * actually signal-controlled red/yellow/all-red approach.
+         */
+        return
+            registeredAtIntersection &&
+            !insideIntersection &&
+            !IsTrafficSignalCurrentlyPermittingEntry();
+    }
+
+
     private bool IsDeadlockEscapeActive()
     {
         return deadlockEscapeTimer > 0f;
+    }
+
+
+    private bool IsTrafficSignalCurrentlyPermittingEntry()
+    {
+        if (intersectionManager == null)
+            return true;
+
+        long nodeId =
+            activeIntersectionNode >= 0
+                ? activeIntersectionNode
+                : currentLane != null
+                    ? currentLane.endNode
+                    : -1;
+
+        if (nodeId < 0)
+            return true;
+
+        return
+            intersectionManager
+                .IsTrafficSignalPermitting(
+                    nodeId,
+                    this
+                );
     }
 
 
@@ -1098,25 +1676,70 @@ public class AwareTrafficAgent_DeadlockEscape : TrafficAgentBase
             return true;
         }
 
-        float nearestProgress =
-            network.occupancyManager.GetNearestProgress(
-                outgoingLane,
-                this
-            );
+        TrafficAgentBase nearestVehicle =
+            network.occupancyManager
+                .FindNearestAhead(
+                    outgoingLane,
+                    this,
+                    -1f,
+                    progressTieTolerance
+                );
 
-        if (float.IsPositiveInfinity(
-                nearestProgress))
-        {
+        if (nearestVehicle == null)
             return true;
-        }
 
+        float nearestProgress =
+            nearestVehicle
+                .CurrentLaneProgress;
+
+        /*
+         * Keep the original conservative "do not block the intersection"
+         * rule for a genuinely queued/stationary receiving lane.
+         */
         float requiredFrontPosition =
             turnEndDistance
             + vehicleLength
             + minimumGap;
 
-        return nearestProgress >=
-            requiredFrontPosition;
+        if (nearestProgress >=
+            requiredFrontPosition)
+        {
+            return true;
+        }
+
+        /*
+         * Important same-stream exception:
+         *
+         * A car that has just finished this connector appears on outgoingLane
+         * at roughly turnEndDistance progress. The old rule instantly changed
+         * Outgoing Lane Clear to false and forced its follower to stop at the
+         * line, even though the leader was actively driving away.
+         *
+         * If the first outgoing-lane car is MOVING, treat it as a longitudinal
+         * leader. Admission is allowed when there is already at least one
+         * ordinary stopped-following gap along the combined connector + lane
+         * path. Connector following and the 0.25 m hard clamp continue to
+         * protect the spacing after entry.
+         *
+         * If that vehicle is stationary, retain the conservative original rule
+         * so a real downstream queue cannot be extended into the intersection.
+         */
+        if (nearestVehicle.CurrentSpeedMps <=
+            stationarySpeedThreshold)
+        {
+            return false;
+        }
+
+        float centreDistance =
+            GetCentreDistanceToOutgoingLeader(
+                nearestVehicle,
+                false
+            );
+
+        return
+            centreDistance
+            >= vehicleLength
+            + minimumGap;
     }
 
 

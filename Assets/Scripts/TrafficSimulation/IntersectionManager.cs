@@ -11,6 +11,10 @@ public class IntersectionManager : MonoBehaviour
     [Tooltip("Allow vehicles with the same incoming and outgoing lane to follow each other through an intersection instead of waiting for the leader to clear the whole junction.")]
     public bool allowSameMovementPlatoons = true;
 
+    [Header("Traffic Lights")]
+    [Tooltip("Optional procedural traffic-light system. Signalized intersections must have a green approach before the existing conflict/right-of-way logic is considered.")]
+    public TrafficLightSystem trafficLightSystem;
+
     private readonly Dictionary<long, List<IntersectionMovement>> movementsByNode =
         new Dictionary<long, List<IntersectionMovement>>();
 
@@ -74,6 +78,13 @@ public class IntersectionManager : MonoBehaviour
         }
     }
 
+    private void Awake()
+    {
+        if (trafficLightSystem == null)
+            trafficLightSystem = FindObjectOfType<TrafficLightSystem>();
+    }
+
+
     public void RegisterApproach(long nodeId, TrafficAgentBase vehicle, Vector3 incomingDirection)
     {
         if (vehicle == null)
@@ -134,39 +145,108 @@ public class IntersectionManager : MonoBehaviour
 
     public bool CanEnter(long nodeId, TrafficAgentBase vehicle)
     {
-        if (!movementsByNode.TryGetValue(nodeId, out List<IntersectionMovement> movements))
+        if (!movementsByNode.TryGetValue(
+                nodeId,
+                out List<IntersectionMovement> movements))
+        {
             return true;
+        }
 
         RemoveDestroyed(movements);
-        IntersectionMovement me = FindMovementInList(movements, vehicle);
+
+        IntersectionMovement me =
+            FindMovementInList(
+                movements,
+                vehicle
+            );
+
         if (me == null)
             return true;
 
-        EnsureConflictCacheCurrent();
-
-        // 1. An already-entered conflicting movement always has priority.
-        for (int i = 0; i < movements.Count; i++)
+        /*
+         * First gate: our own approach must currently have green at a
+         * signalized intersection. Yellow/all-red are treated as stop for
+         * new entries.
+         */
+        if (!IsApproachingMovementSignalEligible(
+                nodeId,
+                me))
         {
-            IntersectionMovement other = movements[i];
-            if (other == me || other.vehicle == null)
-                continue;
-
-            if (MovementsConflict(me, other) && other.insideIntersection)
-                return false;
+            return false;
         }
 
-        // 2. Check whether a conflicting approach is on our right.
-        bool hasVehicleOnRight = false;
-        for (int i = 0; i < movements.Count; i++)
+        EnsureConflictCacheCurrent();
+
+        /*
+         * 1. Vehicles that are ALREADY INSIDE the junction still count,
+         * regardless of what the signal has changed to since they entered.
+         *
+         * Same-movement platoons are already excluded by MovementsConflict().
+         */
+        for (int i = 0;
+             i < movements.Count;
+             i++)
         {
-            IntersectionMovement other = movements[i];
-            if (other == me || other.vehicle == null || other.insideIntersection)
-                continue;
+            IntersectionMovement other =
+                movements[i];
 
-            if (!MovementsConflict(me, other))
+            if (other == me ||
+                other.vehicle == null)
+            {
                 continue;
+            }
 
-            if (IsVehicleOnRight(me.incomingDirection, other.incomingDirection))
+            if (other.insideIntersection &&
+                MovementsConflict(
+                    me,
+                    other))
+            {
+                return false;
+            }
+        }
+
+        /*
+         * 2. For vehicles still APPROACHING the junction, ignore every
+         * movement whose signal is red/yellow/all-red.
+         *
+         * This is the important signalized-junction rule: a car waiting on a
+         * red approach must not make a green approach yield through the old
+         * right-before-left arbitration.
+         */
+        bool hasVehicleOnRight =
+            false;
+
+        for (int i = 0;
+             i < movements.Count;
+             i++)
+        {
+            IntersectionMovement other =
+                movements[i];
+
+            if (other == me ||
+                other.vehicle == null ||
+                other.insideIntersection)
+            {
+                continue;
+            }
+
+            if (!IsApproachingMovementSignalEligible(
+                    nodeId,
+                    other))
+            {
+                continue;
+            }
+
+            if (!MovementsConflict(
+                    me,
+                    other))
+            {
+                continue;
+            }
+
+            if (IsVehicleOnRight(
+                    me.incomingDirection,
+                    other.incomingDirection))
             {
                 hasVehicleOnRight = true;
                 break;
@@ -175,44 +255,169 @@ public class IntersectionManager : MonoBehaviour
 
         if (!hasVehicleOnRight)
         {
-            // Preserve the old oldest-arrival tie break among simultaneously
-            // eligible conflicting approaches without allocating a temporary list.
-            IntersectionMovement oldestEligible = me;
+            IntersectionMovement oldestEligible =
+                me;
 
-            for (int i = 0; i < movements.Count; i++)
+            for (int i = 0;
+                 i < movements.Count;
+                 i++)
             {
-                IntersectionMovement other = movements[i];
-                if (other == me || other.vehicle == null || other.insideIntersection)
-                    continue;
+                IntersectionMovement other =
+                    movements[i];
 
-                if (!MovementsConflict(me, other))
+                if (other == me ||
+                    other.vehicle == null ||
+                    other.insideIntersection)
+                {
                     continue;
+                }
 
-                bool blockedByMe = IsVehicleOnRight(other.incomingDirection, me.incomingDirection);
-                if (!blockedByMe && other.arrivalTime < oldestEligible.arrivalTime)
-                    oldestEligible = other;
+                if (!IsApproachingMovementSignalEligible(
+                        nodeId,
+                        other))
+                {
+                    continue;
+                }
+
+                if (!MovementsConflict(
+                        me,
+                        other))
+                {
+                    continue;
+                }
+
+                bool blockedByMe =
+                    IsVehicleOnRight(
+                        other.incomingDirection,
+                        me.incomingDirection
+                    );
+
+                if (!blockedByMe &&
+                    other.arrivalTime <
+                    oldestEligible.arrivalTime)
+                {
+                    oldestEligible =
+                        other;
+                }
             }
 
             return oldestEligible == me;
         }
 
-        if (HasPriorityCycle(me, movements))
+        if (HasPriorityCycle(
+                nodeId,
+                me,
+                movements))
         {
-            IntersectionMovement oldest = me;
-            for (int i = 0; i < movements.Count; i++)
-            {
-                IntersectionMovement other = movements[i];
-                if (other == me || other.vehicle == null || other.insideIntersection)
-                    continue;
+            IntersectionMovement oldest =
+                me;
 
-                if (MovementsConflict(me, other) && other.arrivalTime < oldest.arrivalTime)
-                    oldest = other;
+            for (int i = 0;
+                 i < movements.Count;
+                 i++)
+            {
+                IntersectionMovement other =
+                    movements[i];
+
+                if (other == me ||
+                    other.vehicle == null ||
+                    other.insideIntersection)
+                {
+                    continue;
+                }
+
+                if (!IsApproachingMovementSignalEligible(
+                        nodeId,
+                        other))
+                {
+                    continue;
+                }
+
+                if (MovementsConflict(
+                        me,
+                        other) &&
+                    other.arrivalTime <
+                    oldest.arrivalTime)
+                {
+                    oldest =
+                        other;
+                }
             }
+
             return oldest == me;
         }
 
         return false;
     }
+
+
+    private bool IsApproachingMovementSignalEligible(
+        long nodeId,
+        IntersectionMovement movement)
+    {
+        if (movement == null)
+            return false;
+
+        /*
+         * A movement already inside is handled separately and must never be
+         * discarded just because its signal changed after entry.
+         */
+        if (movement.insideIntersection)
+            return true;
+
+        if (trafficLightSystem == null ||
+            !trafficLightSystem.IsSignalized(
+                nodeId))
+        {
+            return true;
+        }
+
+        return
+            trafficLightSystem
+                .IsMovementPermitted(
+                    nodeId,
+                    movement.incomingLane
+                );
+    }
+
+
+    /// <summary>
+    /// Signal-only permission query. It deliberately ignores ordinary
+    /// right-of-way/conflict rules and is used by deadlock escape so that
+    /// emergency recovery may bypass an unsignalized priority deadlock but
+    /// never deliberately run a red/yellow light.
+    /// </summary>
+    public bool IsTrafficSignalPermitting(
+        long nodeId,
+        TrafficAgentBase vehicle)
+    {
+        if (trafficLightSystem == null)
+            return true;
+
+        if (!trafficLightSystem.IsSignalized(nodeId))
+            return true;
+
+        IntersectionMovement movement =
+            FindMovement(
+                nodeId,
+                vehicle
+            );
+
+        Lane incomingLane =
+            movement != null
+                ? movement.incomingLane
+                : vehicle != null
+                    ? vehicle.CurrentLane
+                    : null;
+
+        return
+            trafficLightSystem
+                .IsMovementPermitted(
+                    nodeId,
+                    incomingLane
+                );
+    }
+
 
     public void EnterIntersection(long nodeId, TrafficAgentBase vehicle)
     {
@@ -486,34 +691,91 @@ public class IntersectionManager : MonoBehaviour
         return Vector3.Dot(myRight, otherApproachSide) > 0.35f;
     }
 
-    private bool HasPriorityCycle(IntersectionMovement me, List<IntersectionMovement> movements)
+    private bool HasPriorityCycle(
+        long nodeId,
+        IntersectionMovement me,
+        List<IntersectionMovement> movements)
     {
-        // Same practical rule as before, but without temporary List allocations.
-        for (int i = 0; i < movements.Count; i++)
+        /*
+         * Same practical cycle rule as before, but only green/eligible
+         * approaching movements participate at a signalized junction.
+         */
+        for (int i = 0;
+             i < movements.Count;
+             i++)
         {
-            IntersectionMovement candidate = movements[i];
-            if (candidate.vehicle == null || candidate.insideIntersection)
-                continue;
+            IntersectionMovement candidate =
+                movements[i];
 
-            // Only movements in the connected conflict group with 'me' matter.
-            if (candidate != me && !MovementsConflict(me, candidate))
-                continue;
-
-            bool hasRightVehicle = false;
-            for (int j = 0; j < movements.Count; j++)
+            if (candidate.vehicle == null ||
+                candidate.insideIntersection)
             {
-                IntersectionMovement other = movements[j];
-                if (other == candidate || other.vehicle == null || other.insideIntersection)
-                    continue;
+                continue;
+            }
 
-                if (candidate != me && other != me && !MovementsConflict(candidate, other))
-                    continue;
-                if (candidate == me && !MovementsConflict(me, other))
-                    continue;
+            if (!IsApproachingMovementSignalEligible(
+                    nodeId,
+                    candidate))
+            {
+                continue;
+            }
 
-                if (IsVehicleOnRight(candidate.incomingDirection, other.incomingDirection))
+            if (candidate != me &&
+                !MovementsConflict(
+                    me,
+                    candidate))
+            {
+                continue;
+            }
+
+            bool hasRightVehicle =
+                false;
+
+            for (int j = 0;
+                 j < movements.Count;
+                 j++)
+            {
+                IntersectionMovement other =
+                    movements[j];
+
+                if (other == candidate ||
+                    other.vehicle == null ||
+                    other.insideIntersection)
                 {
-                    hasRightVehicle = true;
+                    continue;
+                }
+
+                if (!IsApproachingMovementSignalEligible(
+                        nodeId,
+                        other))
+                {
+                    continue;
+                }
+
+                if (candidate != me &&
+                    other != me &&
+                    !MovementsConflict(
+                        candidate,
+                        other))
+                {
+                    continue;
+                }
+
+                if (candidate == me &&
+                    !MovementsConflict(
+                        me,
+                        other))
+                {
+                    continue;
+                }
+
+                if (IsVehicleOnRight(
+                        candidate.incomingDirection,
+                        other.incomingDirection))
+                {
+                    hasRightVehicle =
+                        true;
+
                     break;
                 }
             }
@@ -521,6 +783,7 @@ public class IntersectionManager : MonoBehaviour
             if (!hasRightVehicle)
                 return false;
         }
+
         return true;
     }
 }

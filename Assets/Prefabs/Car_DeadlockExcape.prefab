@@ -135,12 +135,6 @@ MonoBehaviour:
   debugLastRerouteGainSeconds: 0
   debugLastRerouteGainPercent: 0
   debugSuccessfulReroutes: 0
-  highlightSuccessfulReroutes: 1
-  rerouteHighlightDuration: 10
-  rerouteHighlightColor: {r: 0, g: 1, b: 1, a: 1}
-  showRerouteRouteComparison: 1
-  previousRouteGizmoColor: {r: 1, g: 0, b: 1, a: 1}
-  newRouteGizmoColor: {r: 0, g: 1, b: 0, a: 1}
   showRouteGizmos: 1
   routeGizmoHeight: 1.5
   destinationGizmoRadius: 3
@@ -164,7 +158,7 @@ MonoBehaviour:
   minimumTurnSpeed: 4
   turnSlowdownStrength: 0.08
   intersectionAwarenessDistance: 20
-  stopLineDistance: 6
+  stopLineDistance: 8
   stopLineTolerance: 0.25
   vehicleLength: 4
   minimumGap: 3
