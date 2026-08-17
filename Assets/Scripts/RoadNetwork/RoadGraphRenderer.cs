@@ -5,6 +5,34 @@ using UnityEngine;
 [ExecuteAlways]
 public class RoadGraphRenderer : MonoBehaviour
 {
+    [System.Serializable]
+    private class AlignmentEnvelope
+    {
+        public AlignmentMetadata metadata;
+    }
+
+    [System.Serializable]
+    private class AlignmentMetadata
+    {
+        public UnityAlignment unity_alignment;
+    }
+
+    [System.Serializable]
+    private class UnityAlignment
+    {
+        public AlignmentPosition position;
+        public float rotation_y;
+        public float scale = 1f;
+    }
+
+    [System.Serializable]
+    private class AlignmentPosition
+    {
+        public float x;
+        public float y;
+        public float z;
+    }
+
     [Header("JSON")]
     public string fileName = "ingolstadt_road_graph_square.json";
 
@@ -52,7 +80,59 @@ public class RoadGraphRenderer : MonoBehaviour
             return;
         }
 
+        ReadAndApplyUnityAlignment(json);
         GenerateRoadMeshesFromGraph(loadedGraph);
+    }
+
+    private void ReadAndApplyUnityAlignment(string json)
+    {
+        AlignmentEnvelope envelope = JsonUtility.FromJson<AlignmentEnvelope>(json);
+
+        Vector3 position = Vector3.zero;
+        float rotationY = 0f;
+        float scale = 1f;
+
+        if (envelope != null &&
+            envelope.metadata != null &&
+            envelope.metadata.unity_alignment != null)
+        {
+            UnityAlignment alignment = envelope.metadata.unity_alignment;
+
+            if (alignment.position != null)
+            {
+                position = new Vector3(
+                    alignment.position.x,
+                    alignment.position.y,
+                    alignment.position.z
+                );
+            }
+
+            rotationY = alignment.rotation_y;
+
+            if (alignment.scale > 0f)
+                scale = alignment.scale;
+        }
+        else
+        {
+            Debug.LogWarning(
+                $"No metadata.unity_alignment found in {fileName}. " +
+                "Using position (0,0,0), rotation 0, scale 1."
+            );
+        }
+
+        ApplyUnityAlignment(position, rotationY, scale);
+    }
+
+    public void ApplyUnityAlignment(
+        Vector3 position,
+        float rotationY,
+        float uniformScale)
+    {
+        float safeScale = uniformScale > 0f ? uniformScale : 1f;
+
+        transform.localPosition = position;
+        transform.localRotation = Quaternion.Euler(0f, rotationY, 0f);
+        transform.localScale = Vector3.one * safeScale;
     }
 
     /// <summary>

@@ -5,6 +5,41 @@ using UnityEngine;
 [RequireComponent(typeof(TrafficOccupancyManager))]
 public class RoadNetworkManager : MonoBehaviour
 {
+    [System.Serializable]
+    private class AlignmentEnvelope
+    {
+        public AlignmentMetadata metadata;
+    }
+
+    [System.Serializable]
+    private class AlignmentMetadata
+    {
+        public UnityAlignment unity_alignment;
+    }
+
+    [System.Serializable]
+    private class UnityAlignment
+    {
+        public AlignmentPosition position;
+        public float rotation_y;
+        public float scale = 1f;
+    }
+
+    [System.Serializable]
+    private class AlignmentPosition
+    {
+        public float x;
+        public float y;
+        public float z;
+    }
+
+    private struct LoadedAlignment
+    {
+        public Vector3 position;
+        public float rotationY;
+        public float scale;
+    }
+
     [Header("Road Graph")]
     public string fileName = "ingolstadt_road_graph_square.json";
 
@@ -99,10 +134,13 @@ public class RoadNetworkManager : MonoBehaviour
         }
 
         string requested = NormalizeRoadFileName(value);
-        if (TryReadGraph(requested, out RoadGraphData loadedGraph))
+        if (TryReadGraph(
+                requested,
+                out RoadGraphData loadedGraph,
+                out LoadedAlignment alignment))
         {
             fileName = requested;
-            ApplyReloadedGraph(loadedGraph, true);
+            ApplyReloadedGraph(loadedGraph, alignment, true);
         }
     }
 
@@ -122,16 +160,32 @@ public class RoadNetworkManager : MonoBehaviour
 
     private bool LoadGraphFromConfiguredFile(bool coordinatedRuntimeReload)
     {
-        if (!TryReadGraph(fileName, out RoadGraphData loadedGraph))
+        if (!TryReadGraph(
+                fileName,
+                out RoadGraphData loadedGraph,
+                out LoadedAlignment alignment))
             return false;
 
-        ApplyReloadedGraph(loadedGraph, coordinatedRuntimeReload);
+        ApplyReloadedGraph(
+            loadedGraph,
+            alignment,
+            coordinatedRuntimeReload
+        );
         return true;
     }
 
-    private bool TryReadGraph(string requestedFileName, out RoadGraphData loadedGraph)
+    private bool TryReadGraph(
+        string requestedFileName,
+        out RoadGraphData loadedGraph,
+        out LoadedAlignment alignment)
     {
         loadedGraph = null;
+        alignment = new LoadedAlignment
+        {
+            position = Vector3.zero,
+            rotationY = 0f,
+            scale = 1f
+        };
 
         string path = Path.Combine(
             Application.streamingAssetsPath,
@@ -156,11 +210,42 @@ public class RoadNetworkManager : MonoBehaviour
             return false;
         }
 
+        AlignmentEnvelope envelope = JsonUtility.FromJson<AlignmentEnvelope>(json);
+
+        if (envelope != null &&
+            envelope.metadata != null &&
+            envelope.metadata.unity_alignment != null)
+        {
+            UnityAlignment jsonAlignment = envelope.metadata.unity_alignment;
+
+            if (jsonAlignment.position != null)
+            {
+                alignment.position = new Vector3(
+                    jsonAlignment.position.x,
+                    jsonAlignment.position.y,
+                    jsonAlignment.position.z
+                );
+            }
+
+            alignment.rotationY = jsonAlignment.rotation_y;
+
+            if (jsonAlignment.scale > 0f)
+                alignment.scale = jsonAlignment.scale;
+        }
+        else
+        {
+            Debug.LogWarning(
+                $"No metadata.unity_alignment found in {requestedFileName}. " +
+                "Using position (0,0,0), rotation 0, scale 1."
+            );
+        }
+
         return true;
     }
 
     private void ApplyReloadedGraph(
         RoadGraphData loadedGraph,
+        LoadedAlignment alignment,
         bool coordinatedRuntimeReload)
     {
         /*
@@ -172,6 +257,8 @@ public class RoadNetworkManager : MonoBehaviour
 
         if (occupancyManager != null)
             occupancyManager.ResetState();
+
+        ApplyUnityAlignment(alignment);
 
         graph = loadedGraph;
         BuildLaneGraph();
@@ -185,11 +272,30 @@ public class RoadNetworkManager : MonoBehaviour
         if (roadGraphRenderer != null)
         {
             roadGraphRenderer.fileName = fileName;
+            roadGraphRenderer.ApplyUnityAlignment(
+                alignment.position,
+                alignment.rotationY,
+                alignment.scale
+            );
             roadGraphRenderer.GenerateRoadMeshesFromGraph(graph);
         }
 
         if (coordinatedRuntimeReload && trafficSpawner != null)
             trafficSpawner.RespawnVehicles();
+    }
+
+    private void ApplyUnityAlignment(LoadedAlignment alignment)
+    {
+        if (roadNetworkTransform == null)
+            roadNetworkTransform = transform;
+
+        float safeScale = alignment.scale > 0f ? alignment.scale : 1f;
+
+        roadNetworkTransform.localPosition = alignment.position;
+        roadNetworkTransform.localRotation =
+            Quaternion.Euler(0f, alignment.rotationY, 0f);
+        roadNetworkTransform.localScale =
+            Vector3.one * safeScale;
     }
 
     private void BuildLaneGraph()
