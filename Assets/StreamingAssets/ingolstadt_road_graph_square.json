@@ -7,9 +7,9 @@
     "unity_axes": "x=easting, y=height, z=northing",
     "unity_alignment": {
       "position": {
-        "x": 435.0,
+        "x": 160.0,
         "y": 0.0,
-        "z": 0.0
+        "z": 481.0
       },
       "rotation_y": 0.0,
       "scale": 1.0
