@@ -1,0 +1,88 @@
+{
+  "rows": [
+    {
+      "originZone": "DEFAULT",
+      "destinations": [
+        {
+          "destinationZone": "DEFAULT",
+          "weight": 1.0
+        },
+        {
+          "destinationZone": "Centre",
+          "weight": 1.4
+        },
+        {
+          "destinationZone": "Residential_1",
+          "weight": 0.8
+        },
+        {
+          "destinationZone": "Residential_2",
+          "weight": 0.8
+        }
+      ]
+    },
+    {
+      "originZone": "Centre",
+      "destinations": [
+        {
+          "destinationZone": "DEFAULT",
+          "weight": 0.8
+        },
+        {
+          "destinationZone": "Centre",
+          "weight": 0.3
+        },
+        {
+          "destinationZone": "Residential_1",
+          "weight": 2
+        },
+        {
+          "destinationZone": "Residential_2",
+          "weight": 2
+        }
+      ]
+    },
+    {
+      "originZone": "Residential_1",
+      "destinations": [
+        {
+          "destinationZone": "DEFAULT",
+          "weight": 0.5
+        },
+        {
+          "destinationZone": "Centre",
+          "weight": 2.0
+        },
+        {
+          "destinationZone": "Residential_1",
+          "weight": 1
+        },
+        {
+          "destinationZone": "Residential_2",
+          "weight": 0.5
+        }
+      ]
+    },
+    {
+      "originZone": "Residential_2",
+      "destinations": [
+        {
+          "destinationZone": "DEFAULT",
+          "weight": 0.5
+        },
+        {
+          "destinationZone": "Centre",
+          "weight": 2.0
+        },
+        {
+          "destinationZone": "Residential_1",
+          "weight": 0.2
+        },
+        {
+          "destinationZone": "Residential_2",
+          "weight": 1
+        }
+      ]
+    }
+  ]
+}
