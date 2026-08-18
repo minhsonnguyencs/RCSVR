@@ -52,6 +52,19 @@ namespace Unity.VRTemplate
         [SerializeField] Button m_Btn250;
         [SerializeField] Button m_BtnAll;
 
+        // --- Traffic Vehicle Count -------------------------------------------
+
+        [Header("Traffic Spawner")]
+        [SerializeField] TrafficSpawner m_TrafficSpawner;
+
+        [Header("Vehicle Count Buttons (optional)")]
+        [SerializeField] Button m_Btn500;
+        [SerializeField] Button m_Btn1000;
+        [SerializeField] Button m_Btn1500;
+        [SerializeField] Button m_Btn2000;
+        [SerializeField] Button m_Btn2500;
+        [SerializeField] Button m_Btn3000;
+
         [Header("Colors")]
         [SerializeField] Color m_ActiveColor   = new Color(0.18f, 0.56f, 1.00f);
         [SerializeField] Color m_InactiveColor = new Color(0.13f, 0.13f, 0.16f);
@@ -67,6 +80,7 @@ namespace Unity.VRTemplate
 
         int m_LOD        = 1;
         int m_Complexity = 10;
+        int m_VehicleCount = 500;
 
         // Flat lookup table: [complexityIndex][lodIndex]
         GameObject[,] m_Objects;
@@ -86,6 +100,7 @@ namespace Unity.VRTemplate
             Apply();
             HighlightLOD(m_LOD);
             HighlightComplexity(m_Complexity);
+            HighlightVehicleCount(m_VehicleCount);
         }
 
         // --- --------------------------------------------
@@ -115,6 +130,23 @@ namespace Unity.VRTemplate
         public void SetComplexity150() { m_Complexity = 150; Apply(); HighlightComplexity(150); }
         public void SetComplexity250() { m_Complexity = 250; Apply(); HighlightComplexity(250); }
         public void SetComplexityAll() { m_Complexity = -1;  Apply(); HighlightComplexity(-1);  }
+
+        // --- Btn Vehicle Count -----------------------------------------------------------
+
+        public void SetVehicleCount500()  { SetVehicleCount(500);  }
+        public void SetVehicleCount1000() { SetVehicleCount(1000); }
+        public void SetVehicleCount1500() { SetVehicleCount(1500); }
+        public void SetVehicleCount2000() { SetVehicleCount(2000); }
+        public void SetVehicleCount2500() { SetVehicleCount(2500); }
+        public void SetVehicleCount3000() { SetVehicleCount(3000); }
+
+        void SetVehicleCount(int count)
+        {
+            m_VehicleCount = count;
+            if (m_TrafficSpawner != null)
+                m_TrafficSpawner.RespawnVehicles(count);
+            HighlightVehicleCount(count);
+        }
 
         // --- Internal Render Toggling ------------------------------------------------------------
 
@@ -160,6 +192,16 @@ namespace Unity.VRTemplate
             Highlight(m_Btn150, count == 150);
             Highlight(m_Btn250, count == 250);
             Highlight(m_BtnAll, count == -1);
+        }
+
+        void HighlightVehicleCount(int count)
+        {
+            Highlight(m_Btn500,  count == 500);
+            Highlight(m_Btn1000, count == 1000);
+            Highlight(m_Btn1500, count == 1500);
+            Highlight(m_Btn2000, count == 2000);
+            Highlight(m_Btn2500, count == 2500);
+            Highlight(m_Btn3000, count == 3000);
         }
 
         void Highlight(Button btn, bool active)
