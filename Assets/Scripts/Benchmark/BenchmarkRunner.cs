@@ -28,6 +28,13 @@ namespace Unity.VRTemplate
         [SerializeField] bool m_PilotTestOnly = true;
 
         [ContextMenu("Start Benchmark Runs")]
+
+        void Start()
+        {
+            Debug.Log("[BenchmarkRunner] Starting Automated Matrix Run...");
+            RunBenchmarkMatrix();
+        }
+
         public void RunBenchmarkMatrix()
         {
             StartCoroutine(MatrixExecutionRoutine());
@@ -66,8 +73,8 @@ namespace Unity.VRTemplate
 
                             yield return new WaitUntil(() => pathFinished);
 
-                            // 5. Append Results to CSV File
-                            m_Logger.StopAndSaveToPublicFolder();
+                            // 5. Save directly to persistentDataPath
+                            m_Logger.SaveToPersistentDataPath();
 
                             // 6. Cooldown delay
                             yield return new WaitForSeconds(m_ThermalCooldownDuration);

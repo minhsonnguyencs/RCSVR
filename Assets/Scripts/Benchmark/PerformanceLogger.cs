@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -5,8 +6,6 @@ using System.Text;
 using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.XR;
-
-//What it does: Measures FPS, CPU, GPU, memory, and thermal state frame-by-frame, writing everything directly to a single Master_Benchmark_Results.csv file inside your Quest's public Download folder.
 
 namespace Unity.VRTemplate
 {
@@ -50,30 +49,38 @@ namespace Unity.VRTemplate
             m_IsLogging = true;
         }
 
-        public void StopAndSaveToPublicFolder()
+        public void SaveToPersistentDataPath()
         {
             m_IsLogging = false;
 
-            string downloadFolder = GetPublicDownloadPath();
-            string filePath = Path.Combine(downloadFolder, "Master_Benchmark_Results.csv");
-            bool fileExists = File.Exists(filePath);
-
-            using (StreamWriter writer = new StreamWriter(filePath, append: true))
+            try
             {
-                if (!fileExists)
+                // Forces saving to standard persistentDataPath
+                string filePath = Path.Combine(Application.persistentDataPath, "Master_Benchmark_Results.csv");
+                bool fileExists = File.Exists(filePath);
+
+                using (StreamWriter writer = new StreamWriter(filePath, append: true))
                 {
-                    writer.WriteLine("RunMetadata,FrameIndex,Timestamp,DeltaTimeMS,FPS,CpuTimeMS,GpuTimeMS,AllocatedRAM_MB,ThermalTempC,IsReprojected");
+                    if (!fileExists)
+                    {
+                        writer.WriteLine("RunMetadata,FrameIndex,Timestamp,DeltaTimeMS,FPS,CpuTimeMS,GpuTimeMS,AllocatedRAM_MB,ThermalTempC,IsReprojected");
+                    }
+
+                    string[] lines = m_CsvBuffer.ToString().Split('\n');
+                    foreach (string line in lines)
+                    {
+                        if (!string.IsNullOrWhiteSpace(line))
+                            writer.WriteLine(line);
+                    }
                 }
 
-                string[] lines = m_CsvBuffer.ToString().Split('\n');
-                foreach (string line in lines)
-                {
-                    if (!string.IsNullOrWhiteSpace(line))
-                        writer.WriteLine(line);
-                }
+                // Explicit log output showing exact file location
+                Debug.Log($"[PerformanceLogger] FILE SAVED SUCCESSFULLY AT: {filePath}");
             }
-
-            Debug.Log($"[PerformanceLogger] Data saved to Download folder: {filePath}");
+            catch (Exception ex)
+            {
+                Debug.LogError($"[PerformanceLogger] ERROR SAVING CSV: {ex.Message}");
+            }
         }
 
         void Update()
@@ -106,38 +113,20 @@ namespace Unity.VRTemplate
         float GetDeviceTemperature()
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
-    try
-    {
-        using (var unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
-        using (var currentActivity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity"))
-        using (var intentFilter = new AndroidJavaObject("android.content.IntentFilter", "android.intent.action.BATTERY_CHANGED"))
-        using (var batteryStatus = currentActivity.Call<AndroidJavaObject>("registerReceiver", null, intentFilter))
-        {
-            int temp = batteryStatus.Call<int>("getIntExtra", "temperature", 0);
-            return temp / 10f; // Battery temperature in °C on Android
-        }
-    }
-    catch { return -1f; }
-#else
-            // Fallback constant room temperature (25°C) when running inside the PC Unity Editor
-            return 25f;
-#endif
-        }
-
-        string GetPublicDownloadPath()
-        {
-#if UNITY_ANDROID && !UNITY_EDITOR
             try
             {
-                using (var environment = new AndroidJavaClass("android.os.Environment"))
-                using (var downloadDir = environment.CallStatic<AndroidJavaObject>("getExternalStoragePublicDirectory", environment.GetStatic<string>("DIRECTORY_DOWNLOADS")))
+                using (var unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+                using (var currentActivity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity"))
+                using (var intentFilter = new AndroidJavaObject("android.content.IntentFilter", "android.intent.action.BATTERY_CHANGED"))
+                using (var batteryStatus = currentActivity.Call<AndroidJavaObject>("registerReceiver", null, intentFilter))
                 {
-                    return downloadDir.Call<string>("getAbsolutePath");
+                    int temp = batteryStatus.Call<int>("getIntExtra", "temperature", 0);
+                    return temp / 10f;
                 }
             }
-            catch { return Application.persistentDataPath; }
+            catch { return -1f; }
 #else
-            return Application.persistentDataPath;
+            return 25f;
 #endif
         }
     }
