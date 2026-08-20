@@ -18,7 +18,8 @@ namespace Unity.VRTemplate
         {
             if (m_Waypoints == null || m_Waypoints.Length < 2)
             {
-                Debug.LogError("[BenchmarkCameraPath] You must assign at least 2 Waypoints in the Inspector!");
+                Debug.LogError("[BenchmarkCameraPath] CRITICAL ERROR: Less than 2 waypoints assigned in Inspector!");
+                onComplete?.Invoke(); // Prevent runner from hanging infinitely
                 yield break;
             }
 
