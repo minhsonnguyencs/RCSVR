@@ -1,6 +1,8 @@
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
+using UnityEngine.Networking;
 
 [RequireComponent(typeof(TrafficOccupancyManager))]
 public class RoadNetworkManager : MonoBehaviour
@@ -83,6 +85,11 @@ public class RoadNetworkManager : MonoBehaviour
 
     private readonly List<long> routableDestinationNodes = new List<long>();
 
+    public bool IsNetworkLoaded { get; private set; }
+    public bool IsNetworkLoadInProgress { get; private set; }
+
+    private Coroutine roadLoadCoroutine;
+
     void Awake()
     {
         occupancyManager = GetComponent<TrafficOccupancyManager>();
@@ -100,7 +107,18 @@ public class RoadNetworkManager : MonoBehaviour
         if (trafficLightSystem == null)
             trafficLightSystem = FindObjectOfType<TrafficLightSystem>();
 
+#if UNITY_ANDROID && !UNITY_EDITOR
+        /*
+         * On Android, StreamingAssets live inside the APK and cannot be read
+         * with File.ReadAllText/File.Exists. Load them through UnityWebRequest.
+         *
+         * TrafficSpawner.Start() may run before this asynchronous load finishes.
+         * After a successful initial load we therefore explicitly respawn once.
+         */
+        StartRoadLoad(fileName, false, true);
+#else
         LoadGraphFromConfiguredFile(false);
+#endif
     }
 
     /// <summary>
@@ -134,6 +152,10 @@ public class RoadNetworkManager : MonoBehaviour
         }
 
         string requested = NormalizeRoadFileName(value);
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+        StartRoadLoad(requested, true, false);
+#else
         if (TryReadGraph(
                 requested,
                 out RoadGraphData loadedGraph,
@@ -142,6 +164,7 @@ public class RoadNetworkManager : MonoBehaviour
             fileName = requested;
             ApplyReloadedGraph(loadedGraph, alignment, true);
         }
+#endif
     }
 
     private string NormalizeRoadFileName(string value)
@@ -155,7 +178,107 @@ public class RoadNetworkManager : MonoBehaviour
     [ContextMenu("Reload Road Network")]
     public void ReloadRoadNetwork()
     {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        StartRoadLoad(fileName, true, false);
+#else
         LoadGraphFromConfiguredFile(true);
+#endif
+    }
+
+    private void StartRoadLoad(
+        string requestedFileName,
+        bool coordinatedRuntimeReload,
+        bool respawnAfterInitialAndroidLoad)
+    {
+        if (roadLoadCoroutine != null)
+            StopCoroutine(roadLoadCoroutine);
+
+        roadLoadCoroutine = StartCoroutine(
+            LoadGraphCoroutine(
+                requestedFileName,
+                coordinatedRuntimeReload,
+                respawnAfterInitialAndroidLoad
+            )
+        );
+    }
+
+    private IEnumerator LoadGraphCoroutine(
+        string requestedFileName,
+        bool coordinatedRuntimeReload,
+        bool respawnAfterInitialAndroidLoad)
+    {
+        IsNetworkLoadInProgress = true;
+
+        string path = Path.Combine(
+            Application.streamingAssetsPath,
+            requestedFileName
+        );
+
+        using (UnityWebRequest request = UnityWebRequest.Get(path))
+        {
+            yield return request.SendWebRequest();
+
+            if (request.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogError(
+                    "Road graph JSON could not be loaded: " +
+                    path + "\n" + request.error
+                );
+
+                IsNetworkLoadInProgress = false;
+                roadLoadCoroutine = null;
+                yield break;
+            }
+
+            string json = request.downloadHandler.text;
+
+            if (!TryParseGraphJson(
+                    requestedFileName,
+                    json,
+                    out RoadGraphData loadedGraph,
+                    out LoadedAlignment alignment))
+            {
+                IsNetworkLoadInProgress = false;
+                roadLoadCoroutine = null;
+                yield break;
+            }
+
+            /*
+             * TrafficDemandManager also loads its StreamingAssets file
+             * asynchronously on Android. Wait for its startup load so the very
+             * first spawned cars can already use the OD matrix rather than
+             * briefly falling back to Inspector demand weights.
+             */
+            if (trafficDemandManager != null &&
+                trafficDemandManager.isActiveAndEnabled)
+            {
+                while (!trafficDemandManager.IsODMatrixLoadComplete)
+                    yield return null;
+            }
+
+            fileName = requestedFileName;
+            ApplyReloadedGraph(
+                loadedGraph,
+                alignment,
+                coordinatedRuntimeReload
+            );
+
+            IsNetworkLoaded = true;
+
+            /*
+             * On Android the initial graph load completes after Start(), so the
+             * spawner's normal Start-time attempt may have happened too early.
+             * Respawn exactly once after the network is ready.
+             */
+            if (respawnAfterInitialAndroidLoad &&
+                trafficSpawner != null)
+            {
+                trafficSpawner.RespawnVehicles();
+            }
+        }
+
+        IsNetworkLoadInProgress = false;
+        roadLoadCoroutine = null;
     }
 
     private bool LoadGraphFromConfiguredFile(bool coordinatedRuntimeReload)
@@ -171,6 +294,7 @@ public class RoadNetworkManager : MonoBehaviour
             alignment,
             coordinatedRuntimeReload
         );
+        IsNetworkLoaded = true;
         return true;
     }
 
@@ -180,12 +304,7 @@ public class RoadNetworkManager : MonoBehaviour
         out LoadedAlignment alignment)
     {
         loadedGraph = null;
-        alignment = new LoadedAlignment
-        {
-            position = Vector3.zero,
-            rotationY = 0f,
-            scale = 1f
-        };
+        alignment = DefaultAlignment();
 
         string path = Path.Combine(
             Application.streamingAssetsPath,
@@ -198,25 +317,92 @@ public class RoadNetworkManager : MonoBehaviour
             return false;
         }
 
-        string json = File.ReadAllText(path);
-        loadedGraph = JsonUtility.FromJson<RoadGraphData>(json);
+        try
+        {
+            string json = File.ReadAllText(path);
+
+            return TryParseGraphJson(
+                requestedFileName,
+                json,
+                out loadedGraph,
+                out alignment
+            );
+        }
+        catch (System.Exception exception)
+        {
+            Debug.LogError(
+                "Could not read road graph '" +
+                requestedFileName + "': " +
+                exception.Message
+            );
+            return false;
+        }
+    }
+
+    private LoadedAlignment DefaultAlignment()
+    {
+        return new LoadedAlignment
+        {
+            position = Vector3.zero,
+            rotationY = 0f,
+            scale = 1f
+        };
+    }
+
+    private bool TryParseGraphJson(
+        string requestedFileName,
+        string json,
+        out RoadGraphData loadedGraph,
+        out LoadedAlignment alignment)
+    {
+        loadedGraph = null;
+        alignment = DefaultAlignment();
+
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            Debug.LogError(
+                "Road graph JSON is empty: " +
+                requestedFileName
+            );
+            return false;
+        }
+
+        try
+        {
+            loadedGraph =
+                JsonUtility.FromJson<RoadGraphData>(json);
+        }
+        catch (System.Exception exception)
+        {
+            Debug.LogError(
+                "Could not deserialize road graph '" +
+                requestedFileName + "': " +
+                exception.Message
+            );
+            return false;
+        }
 
         if (loadedGraph == null ||
             loadedGraph.nodes == null ||
             loadedGraph.edges == null)
         {
-            Debug.LogError("Could not deserialize road graph: " + requestedFileName);
+            Debug.LogError(
+                "Could not deserialize road graph: " +
+                requestedFileName
+            );
             loadedGraph = null;
             return false;
         }
 
-        AlignmentEnvelope envelope = JsonUtility.FromJson<AlignmentEnvelope>(json);
+        AlignmentEnvelope envelope =
+            JsonUtility.FromJson<AlignmentEnvelope>(json);
 
         if (envelope != null &&
             envelope.metadata != null &&
             envelope.metadata.unity_alignment != null)
         {
-            UnityAlignment jsonAlignment = envelope.metadata.unity_alignment;
+            UnityAlignment jsonAlignment =
+                envelope.metadata.unity_alignment;
 
             if (jsonAlignment.position != null)
             {
@@ -227,7 +413,8 @@ public class RoadNetworkManager : MonoBehaviour
                 );
             }
 
-            alignment.rotationY = jsonAlignment.rotation_y;
+            alignment.rotationY =
+                jsonAlignment.rotation_y;
 
             if (jsonAlignment.scale > 0f)
                 alignment.scale = jsonAlignment.scale;
