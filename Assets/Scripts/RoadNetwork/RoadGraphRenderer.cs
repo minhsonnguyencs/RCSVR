@@ -1,6 +1,8 @@
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
+using UnityEngine.Networking;
 
 [ExecuteAlways]
 public class RoadGraphRenderer : MonoBehaviour
@@ -60,6 +62,17 @@ public class RoadGraphRenderer : MonoBehaviour
     [ContextMenu("Generate Road Meshes")]
     public void GenerateRoadMeshes()
     {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        if (!Application.isPlaying)
+        {
+            Debug.LogWarning(
+                "RoadGraphRenderer: Android StreamingAssets loading requires Play mode."
+            );
+            return;
+        }
+
+        StartCoroutine(GenerateRoadMeshesCoroutine());
+#else
         string path = Path.Combine(
             Application.streamingAssetsPath,
             fileName
@@ -71,10 +84,78 @@ public class RoadGraphRenderer : MonoBehaviour
             return;
         }
 
-        string json = File.ReadAllText(path);
-        RoadGraphData loadedGraph = JsonUtility.FromJson<RoadGraphData>(json);
+        try
+        {
+            string json = File.ReadAllText(path);
+            GenerateRoadMeshesFromJson(json);
+        }
+        catch (System.Exception exception)
+        {
+            Debug.LogError(
+                "RoadGraphRenderer: failed to read '" +
+                fileName + "': " +
+                exception.Message
+            );
+        }
+#endif
+    }
 
-        if (loadedGraph == null || loadedGraph.edges == null)
+    private IEnumerator GenerateRoadMeshesCoroutine()
+    {
+        string path = Path.Combine(
+            Application.streamingAssetsPath,
+            fileName
+        );
+
+        using (UnityWebRequest request = UnityWebRequest.Get(path))
+        {
+            yield return request.SendWebRequest();
+
+            if (request.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogError(
+                    "RoadGraphRenderer: road JSON could not be loaded: " +
+                    path + "\n" + request.error
+                );
+                yield break;
+            }
+
+            GenerateRoadMeshesFromJson(
+                request.downloadHandler.text
+            );
+        }
+    }
+
+    private void GenerateRoadMeshesFromJson(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            Debug.LogError(
+                "RoadGraphRenderer: road JSON is empty: " +
+                fileName
+            );
+            return;
+        }
+
+        RoadGraphData loadedGraph;
+
+        try
+        {
+            loadedGraph =
+                JsonUtility.FromJson<RoadGraphData>(json);
+        }
+        catch (System.Exception exception)
+        {
+            Debug.LogError(
+                "RoadGraphRenderer: could not deserialize '" +
+                fileName + "': " +
+                exception.Message
+            );
+            return;
+        }
+
+        if (loadedGraph == null ||
+            loadedGraph.edges == null)
         {
             Debug.LogError("Could not read road graph JSON.");
             return;

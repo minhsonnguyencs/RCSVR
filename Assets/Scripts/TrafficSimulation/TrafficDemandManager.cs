@@ -1,7 +1,9 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
+using UnityEngine.Networking;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -87,6 +89,11 @@ public class TrafficDemandManager : MonoBehaviour
     private RoadNetworkManager network;
     private TrafficODMatrixData odMatrix;
 
+    public bool IsODMatrixLoadComplete { get; private set; } = true;
+    public bool IsODMatrixLoadInProgress { get; private set; }
+
+    private Coroutine odMatrixLoadCoroutine;
+
     private readonly Dictionary<string, TrafficDemandZone> zonesByName =
         new Dictionary<string, TrafficDemandZone>(StringComparer.OrdinalIgnoreCase);
 
@@ -113,11 +120,26 @@ public class TrafficDemandManager : MonoBehaviour
     [ContextMenu("Reload OD Matrix")]
     public void ReloadODMatrix()
     {
-        odMatrix = null;
-        odRowsByOrigin.Clear();
+#if UNITY_ANDROID && !UNITY_EDITOR
+        if (odMatrixLoadCoroutine != null)
+            StopCoroutine(odMatrixLoadCoroutine);
+
+        odMatrixLoadCoroutine =
+            StartCoroutine(ReloadODMatrixCoroutine());
+#else
+        ReloadODMatrixSynchronously();
+#endif
+    }
+
+    private void ReloadODMatrixSynchronously()
+    {
+        BeginODMatrixReload();
 
         if (string.IsNullOrWhiteSpace(odMatrixFileName))
+        {
+            FinishODMatrixReload();
             return;
+        }
 
         string path = Path.Combine(
             Application.streamingAssetsPath,
@@ -130,15 +152,105 @@ public class TrafficDemandManager : MonoBehaviour
                 "TrafficDemandManager: OD matrix not found: " + path +
                 ". Destination weights from the zone inspector will be used."
             );
+            FinishODMatrixReload();
             return;
         }
 
         try
         {
             string json = File.ReadAllText(path);
-            odMatrix = JsonUtility.FromJson<TrafficODMatrixData>(json);
+            ParseAndStoreODMatrix(json);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogError(
+                "TrafficDemandManager: failed to load OD matrix: " +
+                exception.Message
+            );
+            odMatrix = null;
+            odRowsByOrigin.Clear();
+        }
 
-            if (odMatrix == null || odMatrix.rows == null)
+        FinishODMatrixReload();
+    }
+
+    public IEnumerator ReloadODMatrixCoroutine()
+    {
+        BeginODMatrixReload();
+
+        if (string.IsNullOrWhiteSpace(odMatrixFileName))
+        {
+            FinishODMatrixReload();
+            odMatrixLoadCoroutine = null;
+            yield break;
+        }
+
+        string path = Path.Combine(
+            Application.streamingAssetsPath,
+            odMatrixFileName
+        );
+
+        using (UnityWebRequest request = UnityWebRequest.Get(path))
+        {
+            yield return request.SendWebRequest();
+
+            if (request.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogWarning(
+                    "TrafficDemandManager: OD matrix could not be loaded: " +
+                    path + "\n" + request.error +
+                    "\nDestination weights from the zone inspector will be used."
+                );
+
+                FinishODMatrixReload();
+                odMatrixLoadCoroutine = null;
+                yield break;
+            }
+
+            ParseAndStoreODMatrix(
+                request.downloadHandler.text
+            );
+        }
+
+        FinishODMatrixReload();
+        odMatrixLoadCoroutine = null;
+    }
+
+    private void BeginODMatrixReload()
+    {
+        IsODMatrixLoadComplete = false;
+        IsODMatrixLoadInProgress = true;
+
+        odMatrix = null;
+        odRowsByOrigin.Clear();
+    }
+
+    private void FinishODMatrixReload()
+    {
+        IsODMatrixLoadInProgress = false;
+        IsODMatrixLoadComplete = true;
+    }
+
+    private void ParseAndStoreODMatrix(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            Debug.LogWarning(
+                "TrafficDemandManager: OD matrix is empty: " +
+                odMatrixFileName
+            );
+            odMatrix = null;
+            odRowsByOrigin.Clear();
+            return;
+        }
+
+        try
+        {
+            odMatrix =
+                JsonUtility.FromJson<TrafficODMatrixData>(json);
+
+            if (odMatrix == null ||
+                odMatrix.rows == null)
             {
                 Debug.LogWarning(
                     "TrafficDemandManager: could not deserialize OD matrix: " +
@@ -150,8 +262,11 @@ public class TrafficDemandManager : MonoBehaviour
 
             foreach (TrafficODRow row in odMatrix.rows)
             {
-                if (row == null || string.IsNullOrWhiteSpace(row.originZone))
+                if (row == null ||
+                    string.IsNullOrWhiteSpace(row.originZone))
+                {
                     continue;
+                }
 
                 odRowsByOrigin[row.originZone.Trim()] = row;
             }
@@ -164,9 +279,10 @@ public class TrafficDemandManager : MonoBehaviour
         catch (Exception exception)
         {
             Debug.LogError(
-                "TrafficDemandManager: failed to load OD matrix: " +
+                "TrafficDemandManager: failed to parse OD matrix: " +
                 exception.Message
             );
+
             odMatrix = null;
             odRowsByOrigin.Clear();
         }
