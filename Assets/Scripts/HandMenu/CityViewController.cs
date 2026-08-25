@@ -1,5 +1,5 @@
-using System.Collections;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -73,46 +73,42 @@ namespace Unity.VRTemplate
         [SerializeField] Button m_Btn3000;
 
         [Header("Colors")]
-        [SerializeField] Color m_ActiveColor   = new Color(0.18f, 0.56f, 1.00f);
+        [SerializeField] Color m_ActiveColor = new Color(0.18f, 0.56f, 1.00f);
         [SerializeField] Color m_InactiveColor = new Color(0.13f, 0.13f, 0.16f);
         [SerializeField] Text m_FpsCounterText;
 
-        // --- NEW: Benchmark & Logging Setup ----------------------------------------
+        // --- Benchmark & Logging Setup ----------------------------------------
         [Header("Benchmark Camera & Path")]
         [SerializeField] Transform m_BenchmarkCamera;
         [SerializeField] Transform[] m_CameraWaypoints;
         [SerializeField] float m_CameraSpeed = 5f;
 
         [Header("Benchmark Parameters")]
-        [SerializeField] bool m_AutoStartBenchmarkOnLaunch = true; //Configuration flags to run tests automatically on boot or limit execution to a 2-run test.
+        [SerializeField] bool m_AutoStartBenchmarkOnLaunch = true;
         [SerializeField] bool m_PilotTestOnly = true;
         [SerializeField] float m_WarmupDuration = 3.0f;
         [SerializeField] float m_ThermalCooldownDuration = 4.0f;
 
         // Profiling Recorders
-        ProfilerRecorder m_CpuFrameTimeRecorder; //read main thread CPU frame time, GPU rendering time, and allocated RAM directly from Unity's engine.
+        ProfilerRecorder m_CpuFrameTimeRecorder;
         ProfilerRecorder m_GpuFrameTimeRecorder;
         ProfilerRecorder m_TotalAllocatedMemoryRecorder;
         XRDisplaySubsystem m_DisplaySubsystem;
         List<XRDisplaySubsystem> m_DisplaySubsystems = new();
 
-        StringBuilder m_CsvBuffer = new StringBuilder(); //Allocates memory in advance to store frame logs, preventing garbage collection spikes from altering performance data.
+        StringBuilder m_CsvBuffer = new StringBuilder();
         bool m_IsLogging = false;
         int m_FrameIndex = 0;
         string m_CurrentMetadataHeader = "";
 
         // --- Initial State ------------------------------------------------------------
-
-        int m_LOD        = 1;
-        int m_Complexity = 10;
+        int m_LOD = 1;
+        int m_Complexity = 10; // Fixed default value to match lookup
         int m_VehicleCount = 500;
         float m_FpsDeltaTime = 0.0f;
 
-        // Flat lookup table: [complexityIndex][lodIndex]
         GameObject[,] m_Objects;
-        
-        /// ////////////////////////////////////////////////////////////////////////////////////////////////
-        
+
         void OnEnable()
         {
             m_CpuFrameTimeRecorder = ProfilerRecorder.StartNew(ProfilerCategory.Internal, "Main Thread Machine Frame Time");
@@ -129,21 +125,23 @@ namespace Unity.VRTemplate
             m_GpuFrameTimeRecorder.Dispose();
             m_TotalAllocatedMemoryRecorder.Dispose();
         }
-        /// ////////////////////////////////////////////////////////////////////////////////////////////////
-        //Constructs the 2D array m_Objects[6, 3] for indexing building models, applies initial visual states,
-        //and triggers the benchmark routine if m_AutoStartBenchmarkOnLaunch is enabled.
-        void Start()
+
+        void Awake()
         {
+            // Initialize array in Awake() so it is populated before any UI calls or Start() loops
             m_Objects = new GameObject[6, 3]
             {
-                { m_10_LOD1,  m_10_LOD2,  m_10_LOD3  },
-                { m_20_LOD1,  m_20_LOD2,  m_20_LOD3  },
-                { m_50_LOD1,  m_50_LOD2,  m_50_LOD3  },
-                { m_150_LOD1, m_150_LOD2, m_150_LOD3 },
-                { m_250_LOD1, m_250_LOD2, m_250_LOD3 },
-                { m_All_LOD1, m_All_LOD2, m_All_LOD3 },
+        { m_10_LOD1,  m_10_LOD2,  m_10_LOD3  },
+        { m_20_LOD1,  m_20_LOD2,  m_20_LOD3  },
+        { m_50_LOD1,  m_50_LOD2,  m_50_LOD3  },
+        { m_150_LOD1, m_150_LOD2, m_150_LOD3 },
+        { m_250_LOD1, m_250_LOD2, m_250_LOD3 },
+        { m_All_LOD1, m_All_LOD2, m_All_LOD3 },
             };
+        }
 
+        void Start()
+        {
             Apply();
             HighlightLOD(m_LOD);
             HighlightComplexity(m_Complexity);
@@ -155,11 +153,8 @@ namespace Unity.VRTemplate
             }
         }
 
-        //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        //Computes a smoothed frame rate calculation for HUD display and invokes RecordPerFrameData() on every frame while m_IsLogging is active.
         void Update()
         {
-            // Continuously calculate frame rendering times
             m_FpsDeltaTime += (Time.unscaledDeltaTime - m_FpsDeltaTime) * 0.1f;
 
             if (m_FpsCounterText != null)
@@ -174,20 +169,17 @@ namespace Unity.VRTemplate
             }
         }
 
-        // --- Automated Matrix Benchmark Loop ---------------------------------------
         [ContextMenu("Start Matrix Benchmark")]
         public void StartBenchmark()
         {
             StartCoroutine(RunBenchmarkMatrixRoutine());
         }
 
-        //Iterates through the test matrix (3LOD x 6Buildings x 6Vehicle Counts x 3Repetitions).
-        //For each step, it configures the scene state, pauses for a warmup duration, records telemetry,
-        //plays the camera path, and appends the frame data to the output file.
         IEnumerator RunBenchmarkMatrixRoutine()
         {
             int[] lods = new int[] { 1, 2, 3 };
-            int[] buildingComplexities = new int[] { 10, 20, 50, 150, 250, -1 }; //no. of buildings
+            // FIX 1: Aligned array values with ComplexityIndex lookup
+            int[] buildingComplexities = new int[] { 10, 20, 50, 150, 250, -1 };
             int[] vehicleCounts = new int[] { 500, 1000, 1500, 2000, 2500, 3000 };
             int repetitions = 3;
 
@@ -204,26 +196,20 @@ namespace Unity.VRTemplate
                         {
                             runCounter++;
 
-                            // 1. Set scene configuration
                             SetLOD(lod);
                             SetComplexity(comp);
                             SetVehicleCount(vehs);
 
-                            // 2. Warmup phase (let physics & spawner settle)
                             yield return new WaitForSeconds(m_WarmupDuration);
 
-                            // 3. Start logging
                             string bldLabel = (comp == -1) ? "All" : comp.ToString();
                             m_CurrentMetadataHeader = $"Run_{runCounter},LOD_{lod},Bld_{bldLabel},Veh_{vehs},Rep_{rep}";
                             StartLogging();
 
-                            // 4. Run Camera Waypoint Movement
                             yield return StartCoroutine(PlayCameraPathRoutine());
 
-                            // 5. Stop logging and save unique file per run
                             StopAndSaveCsv($"Run_{runCounter}_LOD{lod}_Bld{bldLabel}_Veh{vehs}_Rep{rep}");
 
-                            // 6. Thermal cooldown pause
                             yield return new WaitForSeconds(m_ThermalCooldownDuration);
 
                             if (m_PilotTestOnly && runCounter >= 2)
@@ -239,13 +225,12 @@ namespace Unity.VRTemplate
             Debug.Log("[CityViewController] Full Benchmark Matrix complete!");
         }
 
-        //Smoothly moves and rotates "m_BenchmarkCamera" along "m_CameraWaypoints".
         IEnumerator PlayCameraPathRoutine()
         {
             if (m_BenchmarkCamera == null || m_CameraWaypoints == null || m_CameraWaypoints.Length < 2)
             {
-                Debug.LogWarning("[CityViewController] Camera Waypoints not fully assigned. Skipping camera path animation.");
-                yield return new WaitForSeconds(5.0f); // Default duration fallback
+                Debug.LogWarning("[CityViewController] Camera Waypoints not assigned. Fallback delay applied.");
+                yield return new WaitForSeconds(5.0f);
                 yield break;
             }
 
@@ -297,26 +282,18 @@ namespace Unity.VRTemplate
             m_CsvBuffer.AppendLine($"{m_CurrentMetadataHeader},{m_FrameIndex},{Time.time:F3},{deltaTimeMs:F2},{fps:F1},{cpuTimeMs:F2},{gpuTimeMs:F2},{ramMb:F1},{tempC:F1},{isReprojected}");
         }
 
-        //Appends stored string data to "Master_Benchmark_Results.csv" inside "Application.persistentDataPath"
         void StopAndSaveCsv(string runIdentifier)
         {
             m_IsLogging = false;
             try
             {
-                // 1. Define the folder path and ensure it exists
-                string folderPath = Path.Combine(Application.persistentDataPath, "BenchmarkLogs");
-                if (!Directory.Exists(folderPath))
-                {
-                    Directory.CreateDirectory(folderPath);
-                }
-
+                // FIX 2: Root path export without custom directory sub-folders for direct SideQuest visibility
                 // 2. Define the file name
                 string safeIdentifier = runIdentifier.Replace(",", "_").Replace(" ", "");
                 string fileName = $"{safeIdentifier}.csv";
-
                 // 3. Combine folder path and file name into a full path
-                string fullFilePath = Path.Combine(folderPath, fileName);
-
+                string fullFilePath = Path.Combine(Application.persistentDataPath, fileName);
+                Debug.Log($"[CityViewController] Start of the method: {fullFilePath}");
                 // 4. Pass the combined path to StreamWriter
                 using (StreamWriter writer = new StreamWriter(fullFilePath, append: false))
                 {
@@ -330,16 +307,15 @@ namespace Unity.VRTemplate
                     }
                 }
 
-                Debug.Log($"[CityViewController] File successfully written to: {fullFilePath}");
+                Debug.Log($"[CityViewController] SUCCESS! File saved to: {fullFilePath}");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[CityViewController] Failed to write CSV: {ex.Message}");
+                Debug.LogError($"[CityViewController] CRITICAL SAVE ERROR: {ex.Message}");
             }
         }
 
-            //Queries the VR display subsystem for dropped frames or flags frames exceeding 13.88ms or 72 FPS rendering target.
-            bool CheckIfReprojected()
+        bool CheckIfReprojected()
         {
             if (m_DisplaySubsystem != null && m_DisplaySubsystem.TryGetDroppedFrameCount(out int droppedFrames))
             {
@@ -383,26 +359,19 @@ namespace Unity.VRTemplate
             Apply();
             HighlightComplexity(count);
         }
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        // --- Btn LOD -------------------------------------------------------------------
+        public void SetLOD1() { SetLOD(1); }
+        public void SetLOD2() { SetLOD(2); }
+        public void SetLOD3() { SetLOD(3); }
 
-        public void SetLOD1() { m_LOD = 1; Apply(); HighlightLOD(1); }
-        public void SetLOD2() { m_LOD = 2; Apply(); HighlightLOD(2); }
-        public void SetLOD3() { m_LOD = 3; Apply(); HighlightLOD(3); }
+        public void SetComplexity10() { SetComplexity(10); }
+        public void SetComplexity20() { SetComplexity(20); }
+        public void SetComplexity50() { SetComplexity(50); }
+        public void SetComplexity150() { SetComplexity(150); }
+        public void SetComplexity250() { SetComplexity(250); }
+        public void SetComplexityAll() { SetComplexity(-1); }
 
-        // --- Btn Complexity ------------------------------------------------------------
-
-        public void SetComplexity10()  { m_Complexity = 10;  Apply(); HighlightComplexity(10);  }
-        public void SetComplexity20()  { m_Complexity = 20;  Apply(); HighlightComplexity(20);  }
-        public void SetComplexity50()  { m_Complexity = 50;  Apply(); HighlightComplexity(50);  }
-        public void SetComplexity150() { m_Complexity = 150; Apply(); HighlightComplexity(150); }
-        public void SetComplexity250() { m_Complexity = 250; Apply(); HighlightComplexity(250); }
-        public void SetComplexityAll() { m_Complexity = -1;  Apply(); HighlightComplexity(-1);  }
-
-        // --- Btn Vehicle Count -----------------------------------------------------------
-
-        public void SetVehicleCount500()  { SetVehicleCount(500);  }
+        public void SetVehicleCount500() { SetVehicleCount(500); }
         public void SetVehicleCount1000() { SetVehicleCount(1000); }
         public void SetVehicleCount1500() { SetVehicleCount(1500); }
         public void SetVehicleCount2000() { SetVehicleCount(2000); }
@@ -417,29 +386,42 @@ namespace Unity.VRTemplate
             HighlightVehicleCount(count);
         }
 
-        // --- Internal Render Toggling ------------------------------------------------------------
-        //Evaluates the 2D matrix array m_Objects[6,3] and activates only the single 3D building group matching the selected complexity and LOD indices while disabling all others.
         void Apply()
         {
+            // Guard against execution before Awake completes
+            if (m_Objects == null) return;
+
             int ci = ComplexityIndex(m_Complexity);
-            int li = m_LOD - 1; // LOD1→0, LOD2→1, LOD3→2
+            int li = m_LOD - 1;
+
+            // Bounds checking
+            if (ci < 0 || ci >= 6 || li < 0 || li >= 3)
+            {
+                Debug.LogError($"[CityViewController] Out of bounds access in Apply(): ComplexityIndex={ci}, LODIndex={li}");
+                return;
+            }
 
             for (int c = 0; c < 6; c++)
+            {
                 for (int l = 0; l < 3; l++)
+                {
                     if (m_Objects[c, l] != null)
+                    {
                         m_Objects[c, l].SetActive(c == ci && l == li);
-
+                    }
+                }
+            }
         }
 
         static int ComplexityIndex(int count) => count switch
         {
-            10  => 0,
-            20  => 1,
-            50  => 2,
+            10 => 0,
+            20 => 1,
+            50 => 2,
             150 => 3,
             250 => 4,
-            -1  => 5,
-            _   => 0,
+            -1 => 5,
+            _ => 0,
         };
 
         void HighlightLOD(int level)
@@ -451,9 +433,9 @@ namespace Unity.VRTemplate
 
         void HighlightComplexity(int count)
         {
-            Highlight(m_Btn10,  count == 10);
-            Highlight(m_Btn20,  count == 20);
-            Highlight(m_Btn50,  count == 50);
+            Highlight(m_Btn10, count == 10);
+            Highlight(m_Btn20, count == 20);
+            Highlight(m_Btn50, count == 50);
             Highlight(m_Btn150, count == 150);
             Highlight(m_Btn250, count == 250);
             Highlight(m_BtnAll, count == -1);
@@ -461,7 +443,7 @@ namespace Unity.VRTemplate
 
         void HighlightVehicleCount(int count)
         {
-            Highlight(m_Btn500,  count == 500);
+            Highlight(m_Btn500, count == 500);
             Highlight(m_Btn1000, count == 1000);
             Highlight(m_Btn1500, count == 1500);
             Highlight(m_Btn2000, count == 2000);
