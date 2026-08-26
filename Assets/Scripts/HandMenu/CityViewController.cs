@@ -94,7 +94,7 @@ namespace Unity.VRTemplate
 
         [Header("Benchmark Parameters")]
         [SerializeField] bool m_AutoStartBenchmarkOnLaunch = true;
-        [SerializeField] bool m_PilotTestOnly = true;
+        [SerializeField] bool m_PilotTestOnly = false;
         [SerializeField] float m_WarmupDuration = 3.0f;
         [SerializeField] float m_ThermalCooldownDuration = 4.0f;
 
