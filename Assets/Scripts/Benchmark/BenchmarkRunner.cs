@@ -15,7 +15,7 @@ namespace Unity.VRTemplate
 
         [Header("Matrix Parameters (108 Conditions)")]
         [SerializeField] int[] m_LODs = new int[] { 1, 2, 3 };
-        [SerializeField] int[] m_BuildingComplexities = new int[] { 10, 20, 50, 150, 250, -1 }; 
+        [SerializeField] int[] m_BuildingComplexities = new int[] { 1000, 2000, 5000, 10000, 15000, -1 };
         [SerializeField] int[] m_VehicleCounts = new int[] { 500, 1000, 1500, 2000, 2500, 3000 }; 
         [SerializeField] int m_RepetitionsPerCondition = 3;
 
@@ -82,7 +82,7 @@ namespace Unity.VRTemplate
                             // Pilot stop guard
                             if (m_PilotTestOnly && runCounter >= 2)
                             {
-                                Debug.Log("[BenchmarkRunner] Pilot test complete! Check your Downloads folder for Master_Benchmark_Results.csv.");
+                                Debug.Log("[BenchmarkRunner] Pilot test complete! Check persistentDataPath for the Benchmark_Results_*.csv file from this run.");
                                 yield break;
                             }
                         }
@@ -104,12 +104,12 @@ namespace Unity.VRTemplate
         {
             switch (count)
             {
-                case 10: m_CityView.SetComplexity10(); break; 
-                case 20: m_CityView.SetComplexity20(); break; 
-                case 50: m_CityView.SetComplexity50(); break; 
-                case 150: m_CityView.SetComplexity150(); break;
-                case 250: m_CityView.SetComplexity250(); break; 
-                case -1: m_CityView.SetComplexityAll(); break; 
+                case 1000: m_CityView.SetComplexity1000(); break;
+                case 2000: m_CityView.SetComplexity2000(); break;
+                case 5000: m_CityView.SetComplexity5000(); break;
+                case 10000: m_CityView.SetComplexity10000(); break;
+                case 15000: m_CityView.SetComplexity15000(); break;
+                case -1: m_CityView.SetComplexityAll(); break;
             }
         }
 
