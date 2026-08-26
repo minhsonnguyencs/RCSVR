@@ -167,7 +167,7 @@ namespace Unity.VRTemplate
 
             if (m_AutoStartBenchmarkOnLaunch)
             {
-                StartCoroutine(RunBenchmarkMatrixRoutine());
+                RestartBenchmark();
             }
         }
 
@@ -192,7 +192,26 @@ namespace Unity.VRTemplate
         [ContextMenu("Start Matrix Benchmark")]
         public void StartBenchmark()
         {
-            StartCoroutine(RunBenchmarkMatrixRoutine());
+            RestartBenchmark();
+        }
+
+        Coroutine m_ActiveBenchmarkCoroutine;
+
+        // X re-triggers the sweep on demand: stop whatever run is in progress
+        // (auto-started or a previous X press) and start clean from LOD 1,
+        // so two matrix loops never fight over m_LOD/m_Complexity/m_VehicleCount.
+        void RestartBenchmark()
+        {
+            if (m_ActiveBenchmarkCoroutine != null)
+            {
+                StopCoroutine(m_ActiveBenchmarkCoroutine);
+                m_IsLogging = false;
+                // A stopped coroutine can't reach its own cleanup, so undo whatever
+                // PlayCameraPathRoutine suspended mid-flythrough.
+                ResumeXROriginPhysics();
+            }
+
+            m_ActiveBenchmarkCoroutine = StartCoroutine(RunBenchmarkMatrixRoutine());
         }
 
         // X is the left controller's primaryButton (Y is secondaryButton, already
