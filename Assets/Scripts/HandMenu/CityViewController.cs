@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using Unity.Profiling;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.XR;
@@ -14,30 +15,30 @@ namespace Unity.VRTemplate
     {
         // --- City Complexity ------------------------------------------------
 
-        [Header("10 Buildings")]
-        [SerializeField] GameObject m_10_LOD1;
-        [SerializeField] GameObject m_10_LOD2;
-        [SerializeField] GameObject m_10_LOD3;
+        [Header("1000 Buildings")]
+        [SerializeField] GameObject m_1000_LOD1;
+        [SerializeField] GameObject m_1000_LOD2;
+        [SerializeField] GameObject m_1000_LOD3;
 
-        [Header("20 Buildings")]
-        [SerializeField] GameObject m_20_LOD1;
-        [SerializeField] GameObject m_20_LOD2;
-        [SerializeField] GameObject m_20_LOD3;
+        [Header("2000 Buildings")]
+        [SerializeField] GameObject m_2000_LOD1;
+        [SerializeField] GameObject m_2000_LOD2;
+        [SerializeField] GameObject m_2000_LOD3;
 
-        [Header("50 Buildings")]
-        [SerializeField] GameObject m_50_LOD1;
-        [SerializeField] GameObject m_50_LOD2;
-        [SerializeField] GameObject m_50_LOD3;
+        [Header("5000 Buildings")]
+        [SerializeField] GameObject m_5000_LOD1;
+        [SerializeField] GameObject m_5000_LOD2;
+        [SerializeField] GameObject m_5000_LOD3;
 
-        [Header("150 Buildings")]
-        [SerializeField] GameObject m_150_LOD1;
-        [SerializeField] GameObject m_150_LOD2;
-        [SerializeField] GameObject m_150_LOD3;
+        [Header("10000 Buildings")]
+        [SerializeField] GameObject m_10000_LOD1;
+        [SerializeField] GameObject m_10000_LOD2;
+        [SerializeField] GameObject m_10000_LOD3;
 
-        [Header("250 Buildings")]
-        [SerializeField] GameObject m_250_LOD1;
-        [SerializeField] GameObject m_250_LOD2;
-        [SerializeField] GameObject m_250_LOD3;
+        [Header("15000 Buildings")]
+        [SerializeField] GameObject m_15000_LOD1;
+        [SerializeField] GameObject m_15000_LOD2;
+        [SerializeField] GameObject m_15000_LOD3;
 
         [Header("All Buildings")]
         [SerializeField] GameObject m_All_LOD1;
@@ -52,11 +53,11 @@ namespace Unity.VRTemplate
         [SerializeField] Button m_BtnLOD3;
 
         [Header("Complexity Buttons (optional)")]
-        [SerializeField] Button m_Btn10;
-        [SerializeField] Button m_Btn20;
-        [SerializeField] Button m_Btn50;
-        [SerializeField] Button m_Btn150;
-        [SerializeField] Button m_Btn250;
+        [SerializeField] Button m_Btn_City_1000;
+        [SerializeField] Button m_Btn_City_2000;
+        [SerializeField] Button m_Btn_City_5000;
+        [SerializeField] Button m_Btn_City_10000;
+        [SerializeField] Button m_Btn_City_15000;
         [SerializeField] Button m_BtnAll;
 
         // --- Traffic Vehicle Count -------------------------------------------
@@ -73,13 +74,21 @@ namespace Unity.VRTemplate
         [SerializeField] Button m_Btn3000;
 
         [Header("Colors")]
+        [Tooltip("Shown when a button is the currently selected LOD/complexity/vehicle-count choice.")]
         [SerializeField] Color m_ActiveColor = new Color(0.18f, 0.56f, 1.00f);
-        [SerializeField] Color m_InactiveColor = new Color(0.13f, 0.13f, 0.16f);
-        [SerializeField] Text m_FpsCounterText;
+        [Tooltip("Default color for a button that is not the current selection.")]
+        [SerializeField] Color m_DefaultColor = Color.white;
+        [Tooltip("Shown while hovering/pointing at a non-selected button.")]
+        [SerializeField] Color m_HoverColor = new Color(0.4967f, 0.5828f, 0.6623f, 1f);
+        [Tooltip("The All-buildings button always shows this color, regardless of selection or hover state.")]
+        [SerializeField] Color m_AllBuildingsColor = new Color(0.4416667f, 0.4416667f, 0.4416667f, 0.5973f);
+        [SerializeField] TextMeshProUGUI m_FpsCounterText;
 
         // --- Benchmark & Logging Setup ----------------------------------------
         [Header("Benchmark Camera & Path")]
-        [SerializeField] Transform m_BenchmarkCamera;
+        [Tooltip("The XR Origin (XR Rig) root transform to fly through the waypoints. Same transform ViewpointController moves.")]
+        [SerializeField] Transform m_XROriginTransform;
+        [Tooltip("Waypoints the rig flies through, looping back to the first one to form a closed loop.")]
         [SerializeField] Transform[] m_CameraWaypoints;
         [SerializeField] float m_CameraSpeed = 5f;
 
@@ -100,14 +109,19 @@ namespace Unity.VRTemplate
         bool m_IsLogging = false;
         int m_FrameIndex = 0;
         string m_CurrentMetadataHeader = "";
+        string m_SessionCsvFilePath;
 
         // --- Initial State ------------------------------------------------------------
         int m_LOD = 1;
-        int m_Complexity = 10; // Fixed default value to match lookup
+        int m_Complexity = 1000; // Fixed default value to match lookup
         int m_VehicleCount = 500;
         float m_FpsDeltaTime = 0.0f;
 
         GameObject[,] m_Objects;
+
+        // X button on the left controller starts the benchmark matrix.
+        InputDevice m_LeftControllerDevice;
+        bool m_StartBenchmarkButtonWasPressed;
 
         void OnEnable()
         {
@@ -117,6 +131,10 @@ namespace Unity.VRTemplate
 
             SubsystemManager.GetSubsystems(m_DisplaySubsystems);
             if (m_DisplaySubsystems.Count > 0) m_DisplaySubsystem = m_DisplaySubsystems[0];
+
+            // One timestamped file per app launch; every run within this launch appends to it.
+            string fileName = $"Benchmark_Results_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+            m_SessionCsvFilePath = Path.Combine(Application.persistentDataPath, fileName);
         }
 
         void OnDisable()
@@ -131,11 +149,11 @@ namespace Unity.VRTemplate
             // Initialize array in Awake() so it is populated before any UI calls or Start() loops
             m_Objects = new GameObject[6, 3]
             {
-        { m_10_LOD1,  m_10_LOD2,  m_10_LOD3  },
-        { m_20_LOD1,  m_20_LOD2,  m_20_LOD3  },
-        { m_50_LOD1,  m_50_LOD2,  m_50_LOD3  },
-        { m_150_LOD1, m_150_LOD2, m_150_LOD3 },
-        { m_250_LOD1, m_250_LOD2, m_250_LOD3 },
+        { m_1000_LOD1,  m_1000_LOD2,  m_1000_LOD3  },
+        { m_2000_LOD1,  m_2000_LOD2,  m_2000_LOD3  },
+        { m_5000_LOD1,  m_5000_LOD2,  m_5000_LOD3  },
+        { m_10000_LOD1, m_10000_LOD2, m_10000_LOD3 },
+        { m_15000_LOD1, m_15000_LOD2, m_15000_LOD3 },
         { m_All_LOD1, m_All_LOD2, m_All_LOD3 },
             };
         }
@@ -157,6 +175,8 @@ namespace Unity.VRTemplate
         {
             m_FpsDeltaTime += (Time.unscaledDeltaTime - m_FpsDeltaTime) * 0.1f;
 
+            PollStartBenchmarkButton();
+
             if (m_FpsCounterText != null)
             {
                 float fps = 1.0f / m_FpsDeltaTime;
@@ -175,11 +195,35 @@ namespace Unity.VRTemplate
             StartCoroutine(RunBenchmarkMatrixRoutine());
         }
 
+        // X is the left controller's primaryButton (Y is secondaryButton, already
+        // used by HandMenuActivator's menu toggle), polled the same way
+        // ViewpointController polls its controllers.
+        void PollStartBenchmarkButton()
+        {
+            if (!m_LeftControllerDevice.isValid)
+            {
+                var devices = new List<InputDevice>();
+                InputDevices.GetDevicesWithCharacteristics(
+                    InputDeviceCharacteristics.Left | InputDeviceCharacteristics.Controller, devices);
+                if (devices.Count > 0) m_LeftControllerDevice = devices[0];
+                else return;
+            }
+
+            if (m_LeftControllerDevice.TryGetFeatureValue(CommonUsages.primaryButton, out bool pressed))
+            {
+                if (pressed && !m_StartBenchmarkButtonWasPressed)
+                {
+                    StartBenchmark();
+                }
+                m_StartBenchmarkButtonWasPressed = pressed;
+            }
+        }
+
         IEnumerator RunBenchmarkMatrixRoutine()
         {
             int[] lods = new int[] { 1, 2, 3 };
             // FIX 1: Aligned array values with ComplexityIndex lookup
-            int[] buildingComplexities = new int[] { 10, 20, 50, 150, 250, -1 };
+            int[] buildingComplexities = new int[] { 1000, 2000, 5000, 10000, 15000, -1 };
             int[] vehicleCounts = new int[] { 500, 1000, 1500, 2000, 2500, 3000 };
             int repetitions = 3;
 
@@ -225,19 +269,34 @@ namespace Unity.VRTemplate
             Debug.Log("[CityViewController] Full Benchmark Matrix complete!");
         }
 
+        CharacterController m_XROriginCC;
+        Rigidbody m_XROriginRb;
+
+        // Flies the XR rig through m_CameraWaypoints and back to the first one,
+        // forming a closed loop, so every run samples the same full circuit.
         IEnumerator PlayCameraPathRoutine()
         {
-            if (m_BenchmarkCamera == null || m_CameraWaypoints == null || m_CameraWaypoints.Length < 2)
+            if (m_XROriginTransform == null || m_CameraWaypoints == null || m_CameraWaypoints.Length < 2)
             {
                 Debug.LogWarning("[CityViewController] Camera Waypoints not assigned. Fallback delay applied.");
                 yield return new WaitForSeconds(5.0f);
                 yield break;
             }
 
-            for (int i = 0; i < m_CameraWaypoints.Length - 1; i++)
+            if (m_XROriginCC == null) m_XROriginCC = m_XROriginTransform.GetComponent<CharacterController>();
+            if (m_XROriginRb == null) m_XROriginRb = m_XROriginTransform.GetComponent<Rigidbody>();
+
+            // Manual position/rotation assignment fights CharacterController collision
+            // resolution and Rigidbody gravity, so both are suspended for the flythrough.
+            SuspendXROriginPhysics();
+
+            int loopCount = m_CameraWaypoints.Length;
+            for (int i = 0; i < loopCount; i++)
             {
-                Vector3 startPos = m_CameraWaypoints[i].position;
-                Vector3 endPos = m_CameraWaypoints[i + 1].position;
+                Transform from = m_CameraWaypoints[i];
+                Transform to = m_CameraWaypoints[(i + 1) % loopCount];
+                Vector3 startPos = from.position;
+                Vector3 endPos = to.position;
                 float distance = Vector3.Distance(startPos, endPos);
                 float duration = distance / m_CameraSpeed;
                 float elapsed = 0f;
@@ -246,15 +305,29 @@ namespace Unity.VRTemplate
                 {
                     elapsed += Time.deltaTime;
                     float t = Mathf.Clamp01(elapsed / duration);
-                    m_BenchmarkCamera.position = Vector3.Lerp(startPos, endPos, t);
+                    m_XROriginTransform.position = Vector3.Lerp(startPos, endPos, t);
 
                     Vector3 dir = (endPos - startPos).normalized;
                     if (dir.sqrMagnitude > 0.001f)
-                        m_BenchmarkCamera.rotation = Quaternion.LookRotation(dir);
+                        m_XROriginTransform.rotation = Quaternion.LookRotation(dir);
 
                     yield return null;
                 }
             }
+
+            ResumeXROriginPhysics();
+        }
+
+        void SuspendXROriginPhysics()
+        {
+            if (m_XROriginCC != null) m_XROriginCC.enabled = false;
+            if (m_XROriginRb != null) { m_XROriginRb.isKinematic = true; m_XROriginRb.linearVelocity = Vector3.zero; }
+        }
+
+        void ResumeXROriginPhysics()
+        {
+            if (m_XROriginCC != null) m_XROriginCC.enabled = true;
+            if (m_XROriginRb != null) m_XROriginRb.isKinematic = false;
         }
 
         // --- Logging Internal Methods ----------------------------------------------
@@ -287,17 +360,16 @@ namespace Unity.VRTemplate
             m_IsLogging = false;
             try
             {
-                // FIX 2: Root path export without custom directory sub-folders for direct SideQuest visibility
-                // 2. Define the file name
-                string safeIdentifier = runIdentifier.Replace(",", "_").Replace(" ", "");
-                string fileName = $"{safeIdentifier}.csv";
-                // 3. Combine folder path and file name into a full path
-                string fullFilePath = Path.Combine(Application.persistentDataPath, fileName);
-                Debug.Log($"[CityViewController] Start of the method: {fullFilePath}");
-                // 4. Pass the combined path to StreamWriter
-                using (StreamWriter writer = new StreamWriter(fullFilePath, append: false))
+                // Every run appends to the same session file instead of writing its own CSV,
+                // so a full matrix run produces one combined file, not one per run.
+                bool fileExists = File.Exists(m_SessionCsvFilePath);
+
+                using (StreamWriter writer = new StreamWriter(m_SessionCsvFilePath, append: true))
                 {
-                    writer.WriteLine("Run,LOD,BuildingCount,VehicleCount,Repetition,FrameIndex,Timestamp,DeltaTimeMS,FPS,CpuTimeMS,GpuTimeMS,AllocatedRAM_MB,ThermalTempC,IsReprojected");
+                    if (!fileExists)
+                    {
+                        writer.WriteLine("Run,LOD,BuildingCount,VehicleCount,Repetition,FrameIndex,Timestamp,DeltaTimeMS,FPS,CpuTimeMS,GpuTimeMS,AllocatedRAM_MB,ThermalTempC,IsReprojected");
+                    }
 
                     string[] lines = m_CsvBuffer.ToString().Split('\n');
                     foreach (string line in lines)
@@ -307,7 +379,7 @@ namespace Unity.VRTemplate
                     }
                 }
 
-                Debug.Log($"[CityViewController] SUCCESS! File saved to: {fullFilePath}");
+                Debug.Log($"[CityViewController] SUCCESS! Appended {runIdentifier}. File saved to: {m_SessionCsvFilePath}");
             }
             catch (Exception ex)
             {
@@ -364,11 +436,11 @@ namespace Unity.VRTemplate
         public void SetLOD2() { SetLOD(2); }
         public void SetLOD3() { SetLOD(3); }
 
-        public void SetComplexity10() { SetComplexity(10); }
-        public void SetComplexity20() { SetComplexity(20); }
-        public void SetComplexity50() { SetComplexity(50); }
-        public void SetComplexity150() { SetComplexity(150); }
-        public void SetComplexity250() { SetComplexity(250); }
+        public void SetComplexity1000() { SetComplexity(1000); }
+        public void SetComplexity2000() { SetComplexity(2000); }
+        public void SetComplexity5000() { SetComplexity(5000); }
+        public void SetComplexity10000() { SetComplexity(10000); }
+        public void SetComplexity15000() { SetComplexity(15000); }
         public void SetComplexityAll() { SetComplexity(-1); }
 
         public void SetVehicleCount500() { SetVehicleCount(500); }
@@ -415,11 +487,11 @@ namespace Unity.VRTemplate
 
         static int ComplexityIndex(int count) => count switch
         {
-            10 => 0,
-            20 => 1,
-            50 => 2,
-            150 => 3,
-            250 => 4,
+            1000 => 0,
+            2000 => 1,
+            5000 => 2,
+            10000 => 3,
+            15000 => 4,
             -1 => 5,
             _ => 0,
         };
@@ -433,12 +505,12 @@ namespace Unity.VRTemplate
 
         void HighlightComplexity(int count)
         {
-            Highlight(m_Btn10, count == 10);
-            Highlight(m_Btn20, count == 20);
-            Highlight(m_Btn50, count == 50);
-            Highlight(m_Btn150, count == 150);
-            Highlight(m_Btn250, count == 250);
-            Highlight(m_BtnAll, count == -1);
+            Highlight(m_Btn_City_1000, count == 1000);
+            Highlight(m_Btn_City_2000, count == 2000);
+            Highlight(m_Btn_City_5000, count == 5000);
+            Highlight(m_Btn_City_10000, count == 10000);
+            Highlight(m_Btn_City_15000, count == 15000);
+            SetAlwaysColor(m_BtnAll, m_AllBuildingsColor);
         }
 
         void HighlightVehicleCount(int count)
@@ -455,7 +527,24 @@ namespace Unity.VRTemplate
         {
             if (btn == null) return;
             var cb = btn.colors;
-            cb.normalColor = active ? m_ActiveColor : m_InactiveColor;
+            Color normal = active ? m_ActiveColor : m_DefaultColor;
+            cb.normalColor = normal;
+            cb.highlightedColor = active ? m_ActiveColor : m_HoverColor;
+            cb.pressedColor = m_ActiveColor;
+            // Matches normalColor so a button doesn't look stuck once EventSystem
+            // marks it "Selected" after being clicked (that state outranks Highlighted).
+            cb.selectedColor = normal;
+            btn.colors = cb;
+        }
+
+        void SetAlwaysColor(Button btn, Color color)
+        {
+            if (btn == null) return;
+            var cb = btn.colors;
+            cb.normalColor = color;
+            cb.highlightedColor = color;
+            cb.pressedColor = color;
+            cb.selectedColor = color;
             btn.colors = cb;
         }
     }

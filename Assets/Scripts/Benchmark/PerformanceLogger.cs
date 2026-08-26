@@ -22,6 +22,7 @@ namespace Unity.VRTemplate
         bool m_IsLogging;
         int m_FrameIndex;
         string m_CurrentMetadataHeader;
+        string m_SessionFilePath;
 
         void OnEnable()
         {
@@ -32,6 +33,10 @@ namespace Unity.VRTemplate
             SubsystemManager.GetSubsystems(m_DisplaySubsystems);
             if (m_DisplaySubsystems.Count > 0)
                 m_DisplaySubsystem = m_DisplaySubsystems[0];
+
+            // One timestamped file per app launch; every run within this launch appends to it.
+            string fileName = $"Benchmark_Results_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+            m_SessionFilePath = Path.Combine(Application.persistentDataPath, fileName);
         }
 
         void OnDisable()
@@ -55,8 +60,8 @@ namespace Unity.VRTemplate
 
             try
             {
-                // Forces saving to standard persistentDataPath
-                string filePath = Path.Combine(Application.persistentDataPath, "Master_Benchmark_Results.csv");
+                // Forces saving to standard persistentDataPath, using this session's unique file
+                string filePath = m_SessionFilePath;
                 bool fileExists = File.Exists(filePath);
 
                 using (StreamWriter writer = new StreamWriter(filePath, append: true))

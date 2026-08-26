@@ -107,6 +107,7 @@ InitTestScene*.unity*
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
 
 .mcp.json
+.claude/
 .idea/
 .vsconfig
 ProjectSettings/McpUnitySettings.json
@@ -115,3 +116,4 @@ _Recovery
 Editor
 guids.txt
 VR.code-workspace
+Ingolstadt_BackUpThisFolder_ButDontShipItWithYourGame/

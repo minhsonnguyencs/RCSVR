@@ -61,6 +61,19 @@ namespace Unity.VRTemplate
             m_Rb = m_XROriginTransform.GetComponent<Rigidbody>();
         }
 
+        void OnDisable()
+        {
+            // Disabling this GameObject (e.g. a momentary controller/hand-tracking
+            // loss on the parent it's attached to) kills MoveRoutine mid-coroutine,
+            // so it never reaches its own cleanup. Without this, m_ActiveMove is left
+            // stuck non-null, permanently gating off Update()/LateUpdate() below —
+            // meaning bird-eye's altitude lock stops running and gravity can freely
+            // drop the player with nothing left to catch it.
+            m_ActiveMove = null;
+            m_InBirdEye = false;
+            ResumePhysics();
+        }
+
         void Update()
         {
             // Flight only runs in bird-eye and only after the entry transition finishes.

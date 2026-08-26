@@ -2684,7 +2684,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 254393630}
         m_TargetAssemblyTypeName: Unity.VRTemplate.CityViewController, Assembly-CSharp
-        m_MethodName: SetComplexity50
+        m_MethodName: SetComplexity5000
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -5208,7 +5208,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 254393630}
         m_TargetAssemblyTypeName: Unity.VRTemplate.CityViewController, Assembly-CSharp
-        m_MethodName: SetComplexity150
+        m_MethodName: SetComplexity10000
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -5374,7 +5374,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 254393630}
         m_TargetAssemblyTypeName: Unity.VRTemplate.CityViewController, Assembly-CSharp
-        m_MethodName: SetComplexity10
+        m_MethodName: SetComplexity1000
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -7198,7 +7198,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 254393630}
         m_TargetAssemblyTypeName: Unity.VRTemplate.CityViewController, Assembly-CSharp
-        m_MethodName: SetComplexity20
+        m_MethodName: SetComplexity2000
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
