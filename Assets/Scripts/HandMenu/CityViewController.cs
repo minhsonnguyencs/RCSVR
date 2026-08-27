@@ -8,6 +8,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.XR;
+using UnityEngine.XR.Interaction.Toolkit.Locomotion;
 
 namespace Unity.VRTemplate
 {
@@ -90,11 +91,11 @@ namespace Unity.VRTemplate
         [SerializeField] Transform m_XROriginTransform;
         [Tooltip("Waypoints the rig flies through, looping back to the first one to form a closed loop.")]
         [SerializeField] Transform[] m_CameraWaypoints;
-        [SerializeField] float m_CameraSpeed = 5f;
+        [SerializeField] float m_CameraSpeed = 23.6f;
 
         [Header("Benchmark Parameters")]
-        [SerializeField] bool m_AutoStartBenchmarkOnLaunch = true;
-        [SerializeField] bool m_PilotTestOnly = false;
+        [SerializeField] bool m_AutoStartBenchmarkOnLaunch = false;
+
         [SerializeField] float m_WarmupDuration = 3.0f;
         [SerializeField] float m_ThermalCooldownDuration = 4.0f;
 
@@ -104,6 +105,8 @@ namespace Unity.VRTemplate
         ProfilerRecorder m_TotalAllocatedMemoryRecorder;
         XRDisplaySubsystem m_DisplaySubsystem;
         List<XRDisplaySubsystem> m_DisplaySubsystems = new();
+
+        HandMenuActivator m_HandMenuActivator;
 
         StringBuilder m_CsvBuffer = new StringBuilder();
         bool m_IsLogging = false;
@@ -122,11 +125,12 @@ namespace Unity.VRTemplate
         // X button on the left controller starts the benchmark matrix.
         InputDevice m_LeftControllerDevice;
         bool m_StartBenchmarkButtonWasPressed;
+        bool m_SkipNextButtonEdge = true;
 
         void OnEnable()
         {
-            m_CpuFrameTimeRecorder = ProfilerRecorder.StartNew(ProfilerCategory.Internal, "Main Thread Machine Frame Time");
-            m_GpuFrameTimeRecorder = ProfilerRecorder.StartNew(ProfilerCategory.Render, "GpuFrameTime");
+            m_CpuFrameTimeRecorder = ProfilerRecorder.StartNew(ProfilerCategory.Internal, "Main Thread");
+            m_GpuFrameTimeRecorder = ProfilerRecorder.StartNew(ProfilerCategory.Render, "GPU Frame Time");
             m_TotalAllocatedMemoryRecorder = ProfilerRecorder.StartNew(ProfilerCategory.Memory, "Total Allocated Memory");
 
             SubsystemManager.GetSubsystems(m_DisplaySubsystems);
@@ -142,6 +146,13 @@ namespace Unity.VRTemplate
             m_CpuFrameTimeRecorder.Dispose();
             m_GpuFrameTimeRecorder.Dispose();
             m_TotalAllocatedMemoryRecorder.Dispose();
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+            m_CurrentActivity?.Dispose();
+            m_CurrentActivity = null;
+            m_BatteryIntentFilter?.Dispose();
+            m_BatteryIntentFilter = null;
+#endif
         }
 
         void Awake()
@@ -156,6 +167,8 @@ namespace Unity.VRTemplate
         { m_15000_LOD1, m_15000_LOD2, m_15000_LOD3 },
         { m_All_LOD1, m_All_LOD2, m_All_LOD3 },
             };
+
+            m_HandMenuActivator = GetComponent<HandMenuActivator>();
         }
 
         void Start()
@@ -180,7 +193,9 @@ namespace Unity.VRTemplate
             if (m_FpsCounterText != null)
             {
                 float fps = 1.0f / m_FpsDeltaTime;
-                m_FpsCounterText.text = $"FPS: {Mathf.RoundToInt(fps)} | LOD: {m_LOD} | Bld: {(m_Complexity == -1 ? "All" : m_Complexity)} | Veh: {m_VehicleCount}";
+                float cpuMs = m_CpuFrameTimeRecorder.Valid ? m_CpuFrameTimeRecorder.LastValue * 1e-6f : -1f;
+                float gpuMs = m_GpuFrameTimeRecorder.Valid ? m_GpuFrameTimeRecorder.LastValue * 1e-6f : -1f;
+                m_FpsCounterText.text = $"FPS: {Mathf.RoundToInt(fps)} | CPU: {cpuMs:F1}ms | GPU: {gpuMs:F1}ms | LOD: {m_LOD} | Bld: {(m_Complexity == -1 ? "All" : m_Complexity)} | Veh: {m_VehicleCount}";
             }
 
             if (m_IsLogging)
@@ -196,27 +211,20 @@ namespace Unity.VRTemplate
         }
 
         Coroutine m_ActiveBenchmarkCoroutine;
+        bool m_BenchmarkRunning;
 
-        // X re-triggers the sweep on demand: stop whatever run is in progress
-        // (auto-started or a previous X press) and start clean from LOD 1,
-        // so two matrix loops never fight over m_LOD/m_Complexity/m_VehicleCount.
         void RestartBenchmark()
         {
-            if (m_ActiveBenchmarkCoroutine != null)
+            if (m_BenchmarkRunning)
             {
-                StopCoroutine(m_ActiveBenchmarkCoroutine);
-                m_IsLogging = false;
-                // A stopped coroutine can't reach its own cleanup, so undo whatever
-                // PlayCameraPathRoutine suspended mid-flythrough.
-                ResumeXROriginPhysics();
+                Debug.LogWarning("[CityViewController] Benchmark restart requested while a sweep is already running; ignoring.");
+                return;
             }
 
+            m_BenchmarkRunning = true;
             m_ActiveBenchmarkCoroutine = StartCoroutine(RunBenchmarkMatrixRoutine());
         }
 
-        // X is the left controller's primaryButton (Y is secondaryButton, already
-        // used by HandMenuActivator's menu toggle), polled the same way
-        // ViewpointController polls its controllers.
         void PollStartBenchmarkButton()
         {
             if (!m_LeftControllerDevice.isValid)
@@ -224,17 +232,22 @@ namespace Unity.VRTemplate
                 var devices = new List<InputDevice>();
                 InputDevices.GetDevicesWithCharacteristics(
                     InputDeviceCharacteristics.Left | InputDeviceCharacteristics.Controller, devices);
-                if (devices.Count > 0) m_LeftControllerDevice = devices[0];
+                if (devices.Count > 0)
+                {
+                    m_LeftControllerDevice = devices[0];
+                    m_SkipNextButtonEdge = true;
+                }
                 else return;
             }
 
             if (m_LeftControllerDevice.TryGetFeatureValue(CommonUsages.primaryButton, out bool pressed))
             {
-                if (pressed && !m_StartBenchmarkButtonWasPressed)
+                if (pressed && !m_StartBenchmarkButtonWasPressed && !m_SkipNextButtonEdge)
                 {
                     StartBenchmark();
                 }
                 m_StartBenchmarkButtonWasPressed = pressed;
+                m_SkipNextButtonEdge = false;
             }
         }
 
@@ -242,26 +255,41 @@ namespace Unity.VRTemplate
         {
             int[] lods = new int[] { 1, 2, 3 };
             // FIX 1: Aligned array values with ComplexityIndex lookup
-            int[] buildingComplexities = new int[] { 1000, 2000, 5000, 10000, 15000, -1 };
-            int[] vehicleCounts = new int[] { 500, 1000, 1500, 2000, 2500, 3000 };
-            int repetitions = 3;
-
+            int[] buildingComplexities = new int[] { 1000, 2000, 5000, 10000 };
+            int repetitions = 1;
             int runCounter = 0;
-            Debug.Log("[CityViewController] Starting Matrix Benchmark Execution...");
+            // Vehicle count is whatever the user selected before pressing X; the matrix only sweeps LOD x building complexity.
+            int vehs = m_VehicleCount;
+            Debug.Log($"[CityViewController] Starting Matrix Benchmark Execution... (Veh_{vehs} fixed)");
+            ResolveXROriginPhysicsComponents();
+            SuspendXROriginPhysics();
+            if (m_HandMenuActivator != null) m_HandMenuActivator.SetForcedVisible(true);
+            yield return WarmupBuildingShadersRoutine(buildingComplexities, lods);
 
-            foreach (int lod in lods)
+            int? lastComplexity = null;
+            try
             {
                 foreach (int comp in buildingComplexities)
                 {
-                    foreach (int vehs in vehicleCounts)
+                    foreach (int lod in lods)
                     {
                         for (int rep = 1; rep <= repetitions; rep++)
                         {
                             runCounter++;
 
-                            SetLOD(lod);
-                            SetComplexity(comp);
-                            SetVehicleCount(vehs);
+                            try
+                            {
+                                SetLOD(lod);
+                                if (comp != lastComplexity)
+                                {
+                                    SetComplexity(comp);
+                                    lastComplexity = comp;
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.LogError($"[CityViewController] Run_{runCounter} (LOD_{lod}, Bld_{comp}, Veh_{vehs}) setup failed, continuing to next run: {ex}");
+                            }
 
                             yield return new WaitForSeconds(m_WarmupDuration);
 
@@ -269,30 +297,63 @@ namespace Unity.VRTemplate
                             m_CurrentMetadataHeader = $"Run_{runCounter},LOD_{lod},Bld_{bldLabel},Veh_{vehs},Rep_{rep}";
                             StartLogging();
 
-                            yield return StartCoroutine(PlayCameraPathRoutine());
+                            yield return PlayCameraPathRoutine();
 
                             StopAndSaveCsv($"Run_{runCounter}_LOD{lod}_Bld{bldLabel}_Veh{vehs}_Rep{rep}");
 
                             yield return new WaitForSeconds(m_ThermalCooldownDuration);
-
-                            if (m_PilotTestOnly && runCounter >= 2)
-                            {
-                                Debug.Log("[CityViewController] Pilot Test complete! Halting runner.");
-                                yield break;
-                            }
                         }
                     }
                 }
-            }
 
-            Debug.Log("[CityViewController] Full Benchmark Matrix complete!");
+                Debug.Log("[CityViewController] Full Benchmark Matrix complete!");
+            }
+            finally
+            {
+                ResumeXROriginPhysics();
+                if (m_HandMenuActivator != null) m_HandMenuActivator.SetForcedVisible(false);
+                m_BenchmarkRunning = false;
+                m_ActiveBenchmarkCoroutine = null;
+            }
+        }
+
+        IEnumerator WarmupBuildingShadersRoutine(int[] buildingComplexities, int[] lods)
+        {
+            if (m_Objects == null) yield break;
+
+            Debug.Log("[CityViewController] Warming up building shaders/textures...");
+            foreach (int comp in buildingComplexities)
+            {
+                int ci = ComplexityIndex(comp);
+                if (ci < 0 || ci >= 6) continue;
+
+                foreach (int lod in lods)
+                {
+                    int li = lod - 1;
+                    if (li < 0 || li >= 3) continue;
+
+                    GameObject go = m_Objects[ci, li];
+                    if (go == null) continue;
+
+                    go.SetActive(true);
+                    yield return null;
+                }
+            }
+            Debug.Log("[CityViewController] Shader warmup complete.");
         }
 
         CharacterController m_XROriginCC;
         Rigidbody m_XROriginRb;
+        XRBodyTransformer m_XROriginBodyTransformer;
 
-        // Flies the XR rig through m_CameraWaypoints and back to the first one,
-        // forming a closed loop, so every run samples the same full circuit.
+        void ResolveXROriginPhysicsComponents()
+        {
+            if (m_XROriginTransform == null) return;
+            if (m_XROriginCC == null) m_XROriginCC = m_XROriginTransform.GetComponent<CharacterController>();
+            if (m_XROriginRb == null) m_XROriginRb = m_XROriginTransform.GetComponent<Rigidbody>();
+            if (m_XROriginBodyTransformer == null) m_XROriginBodyTransformer = m_XROriginTransform.GetComponentInChildren<XRBodyTransformer>();
+        }
+
         IEnumerator PlayCameraPathRoutine()
         {
             if (m_XROriginTransform == null || m_CameraWaypoints == null || m_CameraWaypoints.Length < 2)
@@ -302,21 +363,49 @@ namespace Unity.VRTemplate
                 yield break;
             }
 
-            if (m_XROriginCC == null) m_XROriginCC = m_XROriginTransform.GetComponent<CharacterController>();
-            if (m_XROriginRb == null) m_XROriginRb = m_XROriginTransform.GetComponent<Rigidbody>();
+            IEnumerator segments = FlythroughSegments();
+            bool moveNext = true;
+            while (moveNext)
+            {
+                try
+                {
+                    moveNext = segments.MoveNext();
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[CityViewController] Camera flythrough failed, skipping to next run: {ex}");
+                    moveNext = false;
+                }
 
-            // Manual position/rotation assignment fights CharacterController collision
-            // resolution and Rigidbody gravity, so both are suspended for the flythrough.
-            SuspendXROriginPhysics();
+                if (moveNext)
+                    yield return segments.Current;
+            }
+        }
 
+        IEnumerator FlythroughSegments()
+        {
             int loopCount = m_CameraWaypoints.Length;
             for (int i = 0; i < loopCount; i++)
             {
                 Transform from = m_CameraWaypoints[i];
                 Transform to = m_CameraWaypoints[(i + 1) % loopCount];
+
+                if (from == null || to == null)
+                {
+                    Debug.LogError($"[CityViewController] Camera waypoint at index {i} is missing; skipping segment.");
+                    continue;
+                }
+
                 Vector3 startPos = from.position;
                 Vector3 endPos = to.position;
                 float distance = Vector3.Distance(startPos, endPos);
+                // m_CameraSpeed <= 0 would make duration Infinity, so elapsed < duration
+                // never becomes false and this segment hangs forever.
+                if (m_CameraSpeed <= 0f)
+                {
+                    Debug.LogError("[CityViewController] m_CameraSpeed must be > 0; skipping segment.");
+                    continue;
+                }
                 float duration = distance / m_CameraSpeed;
                 float elapsed = 0f;
 
@@ -333,12 +422,13 @@ namespace Unity.VRTemplate
                     yield return null;
                 }
             }
-
-            ResumeXROriginPhysics();
         }
 
         void SuspendXROriginPhysics()
         {
+            // Disabled before the CharacterController so it can't sneak in one more
+            // Move() call on the same frame the CharacterController goes inactive.
+            if (m_XROriginBodyTransformer != null) m_XROriginBodyTransformer.enabled = false;
             if (m_XROriginCC != null) m_XROriginCC.enabled = false;
             if (m_XROriginRb != null) { m_XROriginRb.isKinematic = true; m_XROriginRb.linearVelocity = Vector3.zero; }
         }
@@ -346,6 +436,7 @@ namespace Unity.VRTemplate
         void ResumeXROriginPhysics()
         {
             if (m_XROriginCC != null) m_XROriginCC.enabled = true;
+            if (m_XROriginBodyTransformer != null) m_XROriginBodyTransformer.enabled = true;
             if (m_XROriginRb != null) m_XROriginRb.isKinematic = false;
         }
 
@@ -415,25 +506,46 @@ namespace Unity.VRTemplate
             return Time.unscaledDeltaTime > (1f / 72f);
         }
 
+        // Device temperature changes slowly; querying it via JNI/Binder every frame during
+        // logging (up to 72x/sec) is wasteful, so the result is cached and refreshed at most once/sec.
+        const float kTempQueryIntervalSeconds = 1.0f;
+        float m_CachedTempC = 25f;
+        float m_LastTempQueryTime = float.NegativeInfinity;
+#if UNITY_ANDROID && !UNITY_EDITOR
+        AndroidJavaObject m_CurrentActivity;
+        AndroidJavaObject m_BatteryIntentFilter;
+#endif
+
         //Query's the device battery temperature directly from the Quest operating system.
         float GetDeviceTemperature()
         {
+            if (Time.unscaledTime - m_LastTempQueryTime < kTempQueryIntervalSeconds)
+                return m_CachedTempC;
+            m_LastTempQueryTime = Time.unscaledTime;
+
 #if UNITY_ANDROID && !UNITY_EDITOR
             try
             {
-                using (var unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
-                using (var currentActivity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity"))
-                using (var intentFilter = new AndroidJavaObject("android.content.IntentFilter", "android.intent.action.BATTERY_CHANGED"))
-                using (var batteryStatus = currentActivity.Call<AndroidJavaObject>("registerReceiver", null, intentFilter))
+                if (m_CurrentActivity == null)
+                {
+                    using (var unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+                        m_CurrentActivity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity");
+                }
+                if (m_BatteryIntentFilter == null)
+                {
+                    m_BatteryIntentFilter = new AndroidJavaObject("android.content.IntentFilter", "android.intent.action.BATTERY_CHANGED");
+                }
+                using (var batteryStatus = m_CurrentActivity.Call<AndroidJavaObject>("registerReceiver", null, m_BatteryIntentFilter))
                 {
                     int temp = batteryStatus.Call<int>("getIntExtra", "temperature", 0);
-                    return temp / 10f;
+                    m_CachedTempC = temp / 10f;
                 }
             }
-            catch { return -1f; }
+            catch { m_CachedTempC = -1f; }
 #else
-            return 25f;
+            m_CachedTempC = 25f;
 #endif
+            return m_CachedTempC;
         }
 
         // dynamic parameterized methods taking integers
@@ -550,8 +662,6 @@ namespace Unity.VRTemplate
             cb.normalColor = normal;
             cb.highlightedColor = active ? m_ActiveColor : m_HoverColor;
             cb.pressedColor = m_ActiveColor;
-            // Matches normalColor so a button doesn't look stuck once EventSystem
-            // marks it "Selected" after being clicked (that state outranks Highlighted).
             cb.selectedColor = normal;
             btn.colors = cb;
         }
