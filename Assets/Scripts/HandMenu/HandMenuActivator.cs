@@ -34,6 +34,7 @@ namespace Unity.VRTemplate
         Transform m_CameraTransform;
         bool m_IsVisible;
         bool m_ButtonToggled;
+        bool m_ForcedVisible;
 
         void OnEnable()
         {
@@ -49,6 +50,14 @@ namespace Unity.VRTemplate
         {
             if (m_ToggleAction != null)
                 m_ToggleAction.action.performed -= OnTogglePressed;
+        }
+
+        // Keeps the panel visible regardless of hand-tracking/gesture state, for
+        // callers (e.g. the automated benchmark sweep) that need it on-screen for
+        // a stretch where the user isn't necessarily holding the trigger pose.
+        public void SetForcedVisible(bool forced)
+        {
+            m_ForcedVisible = forced;
         }
 
         void OnTogglePressed(InputAction.CallbackContext ctx)
@@ -72,8 +81,10 @@ namespace Unity.VRTemplate
             if (m_CameraTransform == null)
                 m_CameraTransform = Camera.main?.transform;
 
-            // Y-button toggled: attach menu to left controller.
-            if (m_ButtonToggled)
+            // Y-button toggled, or forced open by an external caller (e.g. the
+            // benchmark sweep, so it stays visible without needing a held gesture):
+            // attach menu to left controller.
+            if (m_ButtonToggled || m_ForcedVisible)
             {
                 SetVisible(true);
                 Transform anchor = m_LeftController != null ? m_LeftController : m_CameraTransform;

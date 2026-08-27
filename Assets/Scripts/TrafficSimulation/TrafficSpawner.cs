@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -39,7 +40,12 @@ public class TrafficSpawner : MonoBehaviour
     [Tooltip("Scene-view color of the newly accepted route.")]
     public Color newRouteGizmoColor = Color.green;
 
+    [Header("Spawn Batching")]
+    [Tooltip("Vehicles instantiated per frame while (re)spawning. Spreads large counts across frames instead of stalling a single frame.")]
+    [Min(1)] public int vehiclesPerFrame = 25;
+
     private readonly List<GameObject> spawnedVehicles = new List<GameObject>();
+    private Coroutine m_SpawnRoutine;
 
     public int CurrentSpawnedVehicleCount => spawnedVehicles.Count;
 
@@ -61,7 +67,7 @@ public class TrafficSpawner : MonoBehaviour
     {
         vehicleCount = Mathf.Max(0, newCount);
         ClearVehicles();
-        SpawnVehicles(vehicleCount);
+        m_SpawnRoutine = StartCoroutine(SpawnVehiclesRoutine(vehicleCount));
     }
 
     /// <summary>
@@ -93,6 +99,12 @@ public class TrafficSpawner : MonoBehaviour
 
     public void ClearVehicles()
     {
+        if (m_SpawnRoutine != null)
+        {
+            StopCoroutine(m_SpawnRoutine);
+            m_SpawnRoutine = null;
+        }
+
         if (intersectionManager != null)
             intersectionManager.ClearAllRegistrations();
 
@@ -139,16 +151,22 @@ public class TrafficSpawner : MonoBehaviour
         return true;
     }
 
-    private void SpawnVehicles(int count)
+    private IEnumerator SpawnVehiclesRoutine(int count)
     {
         if (!ValidateConfiguration())
-            return;
+            yield break;
 
         float minSpeed = Mathf.Min(minimumTopSpeedKmh, maximumTopSpeedKmh);
         float maxSpeed = Mathf.Max(minimumTopSpeedKmh, maximumTopSpeedKmh);
 
         for (int i = 0; i < count; i++)
+        {
             SpawnVehicle(minSpeed, maxSpeed);
+            if ((i + 1) % vehiclesPerFrame == 0)
+                yield return null;
+        }
+
+        m_SpawnRoutine = null;
     }
 
     private void SpawnVehicle(float minSpeedKmh, float maxSpeedKmh)
