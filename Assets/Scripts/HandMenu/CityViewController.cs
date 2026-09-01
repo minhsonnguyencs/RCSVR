@@ -97,8 +97,6 @@ namespace Unity.VRTemplate
         [SerializeField] bool m_AutoStartBenchmarkOnLaunch = false;
 
         [SerializeField] float m_WarmupDuration = 5.0f;
-        [SerializeField] float m_ThermalCooldownDuration = 5.0f;
-        [SerializeField] float m_LODBuildingSwitchDelay = 3.0f;
 
         // Profiling Recorders
         ProfilerRecorder m_CpuFrameTimeRecorder;
@@ -203,7 +201,7 @@ namespace Unity.VRTemplate
             }
         }
 
-        [ContextMenu("Start Matrix Benchmark")]
+        [ContextMenu("Start Benchmark Run")]
         public void StartBenchmark()
         {
             RestartBenchmark();
@@ -211,17 +209,18 @@ namespace Unity.VRTemplate
 
         Coroutine m_ActiveBenchmarkCoroutine;
         bool m_BenchmarkRunning;
+        int m_ManualRunCounter;
 
         void RestartBenchmark()
         {
             if (m_BenchmarkRunning)
             {
-                Debug.LogWarning("[CityViewController] Benchmark restart requested while a sweep is already running; ignoring.");
+                Debug.LogWarning("[CityViewController] Benchmark run requested while a run is already in progress; ignoring.");
                 return;
             }
 
             m_BenchmarkRunning = true;
-            m_ActiveBenchmarkCoroutine = StartCoroutine(RunBenchmarkMatrixRoutine());
+            m_ActiveBenchmarkCoroutine = StartCoroutine(RunManualBenchmarkRoutine());
         }
 
         void PollStartBenchmarkButton()
@@ -250,65 +249,34 @@ namespace Unity.VRTemplate
             }
         }
 
-        IEnumerator RunBenchmarkMatrixRoutine()
+        IEnumerator RunManualBenchmarkRoutine()
         {
-            int[] lods = new int[] { 1, 2, 3 };
-            // FIX 1: Aligned array values with ComplexityIndex lookup
-            int[] buildingComplexities = new int[] { 1000, 2000, 5000, 10000, 15000 };
-            int repetitions = 1;
-            int runCounter = 0;
-            // Vehicle count is whatever the user selected before pressing X; the matrix only sweeps LOD x building complexity.
+            // LOD, building complexity, and vehicle count are whatever the user has manually
+            // selected via the hand-menu buttons at the moment X is pressed.
+            m_ManualRunCounter++;
+            int runCounter = m_ManualRunCounter;
+            int lod = m_LOD;
+            int comp = m_Complexity;
             int vehs = m_VehicleCount;
-            Debug.Log($"[CityViewController] Starting Matrix Benchmark Execution... (Veh_{vehs} fixed)");
+            string bldLabel = (comp == -1) ? "All" : comp.ToString();
+
+            Debug.Log($"[CityViewController] Starting manual benchmark run {runCounter} (LOD_{lod}, Bld_{bldLabel}, Veh_{vehs})...");
             ResolveXROriginPhysicsComponents();
             SuspendXROriginPhysics();
             if (m_HandMenuActivator != null) m_HandMenuActivator.SetForcedVisible(true);
-            yield return WarmupBuildingShadersRoutine(buildingComplexities, lods);
 
-            int? lastComplexity = null;
             try
             {
-                foreach (int comp in buildingComplexities)
-                {
-                    foreach (int lod in lods)
-                    {
-                        for (int rep = 1; rep <= repetitions; rep++)
-                        {
-                            runCounter++;
+                yield return new WaitForSeconds(m_WarmupDuration);
 
-                            try
-                            {
-                                SetLOD(lod);
-                                if (comp != lastComplexity)
-                                {
-                                    SetComplexity(comp);
-                                    lastComplexity = comp;
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                Debug.LogError($"[CityViewController] Run_{runCounter} (LOD_{lod}, Bld_{comp}, Veh_{vehs}) setup failed, continuing to next run: {ex}");
-                            }
+                m_CurrentMetadataHeader = $"Run_{runCounter},LOD_{lod},Bld_{bldLabel},Veh_{vehs}";
+                StartLogging();
 
-                            // Let the LOD/building complexity switch settle before the general warmup
-                            yield return new WaitForSeconds(m_LODBuildingSwitchDelay);
+                yield return PlayCameraPathRoutine();
 
-                            yield return new WaitForSeconds(m_WarmupDuration);
+                StopAndSaveCsv($"Run_{runCounter}_LOD{lod}_Bld{bldLabel}_Veh{vehs}");
 
-                            string bldLabel = (comp == -1) ? "All" : comp.ToString();
-                            m_CurrentMetadataHeader = $"Run_{runCounter},LOD_{lod},Bld_{bldLabel},Veh_{vehs},Rep_{rep}";
-                            StartLogging();
-
-                            yield return PlayCameraPathRoutine();
-
-                            StopAndSaveCsv($"Run_{runCounter}_LOD{lod}_Bld{bldLabel}_Veh{vehs}_Rep{rep}");
-
-                            yield return new WaitForSeconds(m_ThermalCooldownDuration);
-                        }
-                    }
-                }
-
-                Debug.Log("[CityViewController] Full Benchmark Matrix complete!");
+                Debug.Log($"[CityViewController] Manual benchmark run {runCounter} complete!");
             }
             finally
             {
@@ -317,31 +285,6 @@ namespace Unity.VRTemplate
                 m_BenchmarkRunning = false;
                 m_ActiveBenchmarkCoroutine = null;
             }
-        }
-
-        IEnumerator WarmupBuildingShadersRoutine(int[] buildingComplexities, int[] lods)
-        {
-            if (m_Objects == null) yield break;
-
-            Debug.Log("[CityViewController] Warming up building shaders/textures...");
-            foreach (int comp in buildingComplexities)
-            {
-                int ci = ComplexityIndex(comp);
-                if (ci < 0 || ci >= 6) continue;
-
-                foreach (int lod in lods)
-                {
-                    int li = lod - 1;
-                    if (li < 0 || li >= 3) continue;
-
-                    GameObject go = m_Objects[ci, li];
-                    if (go == null) continue;
-
-                    go.SetActive(true);
-                    yield return null;
-                }
-            }
-            Debug.Log("[CityViewController] Shader warmup complete.");
         }
 
         CharacterController m_XROriginCC;
