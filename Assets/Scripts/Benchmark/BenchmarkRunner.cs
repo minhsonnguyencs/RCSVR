@@ -20,8 +20,9 @@ namespace Unity.VRTemplate
         [SerializeField] int m_RepetitionsPerCondition = 3;
 
         [Header("Timing")]
-        [SerializeField] float m_WarmupDuration = 3.0f;
-        [SerializeField] float m_ThermalCooldownDuration = 4.0f;
+        [SerializeField] float m_WarmupDuration = 5.0f;
+        [SerializeField] float m_ThermalCooldownDuration = 5.0f;
+        [SerializeField] float m_LODBuildingSwitchDelay = 3.0f;
 
         [Header("Safety / Pilot Testing")]
         [Tooltip("Check this to test only 2 runs first to make sure everything works.")]
@@ -57,6 +58,10 @@ namespace Unity.VRTemplate
                             // 1. Change scene settings using CityViewController[cite: 26]
                             ApplyLOD(lod);
                             ApplyBuildingComplexity(bldComp);
+
+                            // Let the LOD/building complexity switch settle before touching traffic
+                            yield return new WaitForSeconds(m_LODBuildingSwitchDelay);
+
                             ApplyVehicleCount(vehCount);
 
                             // 2. Wait for physics and spawner to settle

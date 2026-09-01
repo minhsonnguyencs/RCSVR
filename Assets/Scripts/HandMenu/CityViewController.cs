@@ -96,8 +96,9 @@ namespace Unity.VRTemplate
         [Header("Benchmark Parameters")]
         [SerializeField] bool m_AutoStartBenchmarkOnLaunch = false;
 
-        [SerializeField] float m_WarmupDuration = 3.0f;
-        [SerializeField] float m_ThermalCooldownDuration = 4.0f;
+        [SerializeField] float m_WarmupDuration = 5.0f;
+        [SerializeField] float m_ThermalCooldownDuration = 5.0f;
+        [SerializeField] float m_LODBuildingSwitchDelay = 3.0f;
 
         // Profiling Recorders
         ProfilerRecorder m_CpuFrameTimeRecorder;
@@ -115,8 +116,8 @@ namespace Unity.VRTemplate
 
         // --- Initial State ------------------------------------------------------------
         int m_LOD = 1;
-        int m_Complexity = 1000; // Fixed default value to match lookup
-        int m_VehicleCount = 500;
+        int m_Complexity = 1000;
+        int m_VehicleCount = 0;
         float m_FpsDeltaTime = 0.0f;
 
         GameObject[,] m_Objects;
@@ -288,6 +289,9 @@ namespace Unity.VRTemplate
                             {
                                 Debug.LogError($"[CityViewController] Run_{runCounter} (LOD_{lod}, Bld_{comp}, Veh_{vehs}) setup failed, continuing to next run: {ex}");
                             }
+
+                            // Let the LOD/building complexity switch settle before the general warmup
+                            yield return new WaitForSeconds(m_LODBuildingSwitchDelay);
 
                             yield return new WaitForSeconds(m_WarmupDuration);
 
