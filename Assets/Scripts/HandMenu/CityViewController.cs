@@ -215,12 +215,32 @@ namespace Unity.VRTemplate
         {
             if (m_BenchmarkRunning)
             {
-                Debug.LogWarning("[CityViewController] Benchmark run requested while a run is already in progress; ignoring.");
-                return;
+                Debug.Log("[CityViewController] X pressed again during an active run; interrupting it to start a new run with the current settings.");
+                InterruptActiveBenchmarkRun();
             }
 
             m_BenchmarkRunning = true;
             m_ActiveBenchmarkCoroutine = StartCoroutine(RunManualBenchmarkRoutine());
+        }
+
+        void InterruptActiveBenchmarkRun()
+        {
+            // Unity does not run the pending finally block of a coroutine stopped via
+            // StopCoroutine, so the cleanup it would have done has to happen here instead.
+            if (m_ActiveBenchmarkCoroutine != null)
+            {
+                StopCoroutine(m_ActiveBenchmarkCoroutine);
+                m_ActiveBenchmarkCoroutine = null;
+            }
+
+            // Discard the interrupted run's buffered frames; it never reached the end of the
+            // camera path, so it isn't a valid data point.
+            m_IsLogging = false;
+            m_CsvBuffer.Clear();
+
+            ResumeXROriginPhysics();
+            if (m_HandMenuActivator != null) m_HandMenuActivator.SetForcedVisible(false);
+            m_BenchmarkRunning = false;
         }
 
         void PollStartBenchmarkButton()
