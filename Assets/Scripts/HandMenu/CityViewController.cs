@@ -443,7 +443,7 @@ namespace Unity.VRTemplate
                 {
                     if (!fileExists)
                     {
-                        writer.WriteLine("Run,LOD,BuildingCount,VehicleCount,Repetition,FrameIndex,Timestamp,DeltaTimeMS,FPS,CpuTimeMS,GpuTimeMS,AllocatedRAM_MB,ThermalTempC,IsReprojected");
+                        writer.WriteLine("Run,LOD,BuildingCount,VehicleCount,FrameIndex,Timestamp,DeltaTimeMS,FPS,CpuTimeMS,GpuTimeMS,AllocatedRAM_MB,ThermalTempC,IsReprojected");
                     }
 
                     string[] lines = m_CsvBuffer.ToString().Split('\n');
