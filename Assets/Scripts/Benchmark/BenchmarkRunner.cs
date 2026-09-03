@@ -16,12 +16,13 @@ namespace Unity.VRTemplate
         [Header("Matrix Parameters (108 Conditions)")]
         [SerializeField] int[] m_LODs = new int[] { 1, 2, 3 };
         [SerializeField] int[] m_BuildingComplexities = new int[] { 1000, 2000, 5000, 10000, 15000, -1 };
-        [SerializeField] int[] m_VehicleCounts = new int[] { 500, 1000, 1500, 2000, 2500, 3000 }; 
+        [SerializeField] int[] m_VehicleCounts = new int[] { 0, 100, 500, 1000, 1500 };
         [SerializeField] int m_RepetitionsPerCondition = 3;
 
         [Header("Timing")]
-        [SerializeField] float m_WarmupDuration = 3.0f;
-        [SerializeField] float m_ThermalCooldownDuration = 4.0f;
+        [SerializeField] float m_WarmupDuration = 5.0f;
+        [SerializeField] float m_ThermalCooldownDuration = 5.0f;
+        [SerializeField] float m_LODBuildingSwitchDelay = 3.0f;
 
         [Header("Safety / Pilot Testing")]
         [Tooltip("Check this to test only 2 runs first to make sure everything works.")]
@@ -57,6 +58,10 @@ namespace Unity.VRTemplate
                             // 1. Change scene settings using CityViewController[cite: 26]
                             ApplyLOD(lod);
                             ApplyBuildingComplexity(bldComp);
+
+                            // Let the LOD/building complexity switch settle before touching traffic
+                            yield return new WaitForSeconds(m_LODBuildingSwitchDelay);
+
                             ApplyVehicleCount(vehCount);
 
                             // 2. Wait for physics and spawner to settle
@@ -117,12 +122,11 @@ namespace Unity.VRTemplate
         {
             switch (count)
             {
-                case 500: m_CityView.SetVehicleCount500(); break; 
-                case 1000: m_CityView.SetVehicleCount1000(); break; 
-                case 1500: m_CityView.SetVehicleCount1500(); break; 
-                case 2000: m_CityView.SetVehicleCount2000(); break; 
-                case 2500: m_CityView.SetVehicleCount2500(); break; 
-                case 3000: m_CityView.SetVehicleCount3000(); break; 
+                case 0: m_CityView.SetVehicleCount0(); break;
+                case 100: m_CityView.SetVehicleCount100(); break;
+                case 500: m_CityView.SetVehicleCount500(); break;
+                case 1000: m_CityView.SetVehicleCount1000(); break;
+                case 1500: m_CityView.SetVehicleCount1500(); break;
             }
         }
     }

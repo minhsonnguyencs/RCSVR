@@ -6,6 +6,7 @@ using System.Text;
 using Unity.Profiling;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Profiling;
 using UnityEngine.UI;
 using UnityEngine.XR;
 using UnityEngine.XR.Interaction.Toolkit.Locomotion;
@@ -67,12 +68,11 @@ namespace Unity.VRTemplate
         [SerializeField] TrafficSpawner m_TrafficSpawner;
 
         [Header("Vehicle Count Buttons (optional)")]
+        [SerializeField] Button m_Btn0;
+        [SerializeField] Button m_Btn100;
         [SerializeField] Button m_Btn500;
         [SerializeField] Button m_Btn1000;
         [SerializeField] Button m_Btn1500;
-        [SerializeField] Button m_Btn2000;
-        [SerializeField] Button m_Btn2500;
-        [SerializeField] Button m_Btn3000;
 
         [Header("Colors")]
         [Tooltip("Shown when a button is the currently selected LOD/complexity/vehicle-count choice.")]
@@ -96,13 +96,11 @@ namespace Unity.VRTemplate
         [Header("Benchmark Parameters")]
         [SerializeField] bool m_AutoStartBenchmarkOnLaunch = false;
 
-        [SerializeField] float m_WarmupDuration = 3.0f;
-        [SerializeField] float m_ThermalCooldownDuration = 4.0f;
+        [SerializeField] float m_WarmupDuration = 5.0f;
 
         // Profiling Recorders
         ProfilerRecorder m_CpuFrameTimeRecorder;
         ProfilerRecorder m_GpuFrameTimeRecorder;
-        ProfilerRecorder m_TotalAllocatedMemoryRecorder;
         XRDisplaySubsystem m_DisplaySubsystem;
         List<XRDisplaySubsystem> m_DisplaySubsystems = new();
 
@@ -116,8 +114,8 @@ namespace Unity.VRTemplate
 
         // --- Initial State ------------------------------------------------------------
         int m_LOD = 1;
-        int m_Complexity = 1000; // Fixed default value to match lookup
-        int m_VehicleCount = 500;
+        int m_Complexity = 1000;
+        int m_VehicleCount = 0;
         float m_FpsDeltaTime = 0.0f;
 
         GameObject[,] m_Objects;
@@ -131,7 +129,6 @@ namespace Unity.VRTemplate
         {
             m_CpuFrameTimeRecorder = ProfilerRecorder.StartNew(ProfilerCategory.Internal, "Main Thread");
             m_GpuFrameTimeRecorder = ProfilerRecorder.StartNew(ProfilerCategory.Render, "GPU Frame Time");
-            m_TotalAllocatedMemoryRecorder = ProfilerRecorder.StartNew(ProfilerCategory.Memory, "Total Allocated Memory");
 
             SubsystemManager.GetSubsystems(m_DisplaySubsystems);
             if (m_DisplaySubsystems.Count > 0) m_DisplaySubsystem = m_DisplaySubsystems[0];
@@ -145,7 +142,6 @@ namespace Unity.VRTemplate
         {
             m_CpuFrameTimeRecorder.Dispose();
             m_GpuFrameTimeRecorder.Dispose();
-            m_TotalAllocatedMemoryRecorder.Dispose();
 
 #if UNITY_ANDROID && !UNITY_EDITOR
             m_CurrentActivity?.Dispose();
@@ -194,8 +190,9 @@ namespace Unity.VRTemplate
             {
                 float fps = 1.0f / m_FpsDeltaTime;
                 float cpuMs = m_CpuFrameTimeRecorder.Valid ? m_CpuFrameTimeRecorder.LastValue * 1e-6f : -1f;
-                float gpuMs = m_GpuFrameTimeRecorder.Valid ? m_GpuFrameTimeRecorder.LastValue * 1e-6f : -1f;
-                m_FpsCounterText.text = $"FPS: {Mathf.RoundToInt(fps)} | CPU: {cpuMs:F1}ms | GPU: {gpuMs:F1}ms | LOD: {m_LOD} | Bld: {(m_Complexity == -1 ? "All" : m_Complexity)} | Veh: {m_VehicleCount}";
+                float gpuMs = (m_DisplaySubsystem != null && m_DisplaySubsystem.TryGetAppGPUTimeLastFrame(out float xrGpuMs)) ? xrGpuMs : (m_GpuFrameTimeRecorder.Valid ? m_GpuFrameTimeRecorder.LastValue * 1e-6f : -1f);
+                float ramMb = Profiler.GetTotalAllocatedMemoryLong() / (1024f * 1024f);
+                m_FpsCounterText.text = $"FPS: {Mathf.RoundToInt(fps)} | CPU: {cpuMs:F1}ms | GPU: {gpuMs:F1}ms | RAM: {ramMb:F0}MB | LOD: {m_LOD} | Bld: {(m_Complexity == -1 ? "All" : m_Complexity)} | Veh: {m_VehicleCount}";
             }
 
             if (m_IsLogging)
@@ -204,7 +201,7 @@ namespace Unity.VRTemplate
             }
         }
 
-        [ContextMenu("Start Matrix Benchmark")]
+        [ContextMenu("Start Benchmark Run")]
         public void StartBenchmark()
         {
             RestartBenchmark();
@@ -212,17 +209,38 @@ namespace Unity.VRTemplate
 
         Coroutine m_ActiveBenchmarkCoroutine;
         bool m_BenchmarkRunning;
+        int m_ManualRunCounter;
 
         void RestartBenchmark()
         {
             if (m_BenchmarkRunning)
             {
-                Debug.LogWarning("[CityViewController] Benchmark restart requested while a sweep is already running; ignoring.");
-                return;
+                Debug.Log("[CityViewController] X pressed again during an active run; interrupting it to start a new run with the current settings.");
+                InterruptActiveBenchmarkRun();
             }
 
             m_BenchmarkRunning = true;
-            m_ActiveBenchmarkCoroutine = StartCoroutine(RunBenchmarkMatrixRoutine());
+            m_ActiveBenchmarkCoroutine = StartCoroutine(RunManualBenchmarkRoutine());
+        }
+
+        void InterruptActiveBenchmarkRun()
+        {
+            // Unity does not run the pending finally block of a coroutine stopped via
+            // StopCoroutine, so the cleanup it would have done has to happen here instead.
+            if (m_ActiveBenchmarkCoroutine != null)
+            {
+                StopCoroutine(m_ActiveBenchmarkCoroutine);
+                m_ActiveBenchmarkCoroutine = null;
+            }
+
+            // Discard the interrupted run's buffered frames; it never reached the end of the
+            // camera path, so it isn't a valid data point.
+            m_IsLogging = false;
+            m_CsvBuffer.Clear();
+
+            ResumeXROriginPhysics();
+            if (m_HandMenuActivator != null) m_HandMenuActivator.SetForcedVisible(false);
+            m_BenchmarkRunning = false;
         }
 
         void PollStartBenchmarkButton()
@@ -251,62 +269,34 @@ namespace Unity.VRTemplate
             }
         }
 
-        IEnumerator RunBenchmarkMatrixRoutine()
+        IEnumerator RunManualBenchmarkRoutine()
         {
-            int[] lods = new int[] { 1, 2, 3 };
-            // FIX 1: Aligned array values with ComplexityIndex lookup
-            int[] buildingComplexities = new int[] { 1000, 2000, 5000, 10000 };
-            int repetitions = 1;
-            int runCounter = 0;
-            // Vehicle count is whatever the user selected before pressing X; the matrix only sweeps LOD x building complexity.
+            // LOD, building complexity, and vehicle count are whatever the user has manually
+            // selected via the hand-menu buttons at the moment X is pressed.
+            m_ManualRunCounter++;
+            int runCounter = m_ManualRunCounter;
+            int lod = m_LOD;
+            int comp = m_Complexity;
             int vehs = m_VehicleCount;
-            Debug.Log($"[CityViewController] Starting Matrix Benchmark Execution... (Veh_{vehs} fixed)");
+            string bldLabel = (comp == -1) ? "All" : comp.ToString();
+
+            Debug.Log($"[CityViewController] Starting manual benchmark run {runCounter} (LOD_{lod}, Bld_{bldLabel}, Veh_{vehs})...");
             ResolveXROriginPhysicsComponents();
             SuspendXROriginPhysics();
             if (m_HandMenuActivator != null) m_HandMenuActivator.SetForcedVisible(true);
-            yield return WarmupBuildingShadersRoutine(buildingComplexities, lods);
 
-            int? lastComplexity = null;
             try
             {
-                foreach (int comp in buildingComplexities)
-                {
-                    foreach (int lod in lods)
-                    {
-                        for (int rep = 1; rep <= repetitions; rep++)
-                        {
-                            runCounter++;
+                yield return new WaitForSeconds(m_WarmupDuration);
 
-                            try
-                            {
-                                SetLOD(lod);
-                                if (comp != lastComplexity)
-                                {
-                                    SetComplexity(comp);
-                                    lastComplexity = comp;
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                Debug.LogError($"[CityViewController] Run_{runCounter} (LOD_{lod}, Bld_{comp}, Veh_{vehs}) setup failed, continuing to next run: {ex}");
-                            }
+                m_CurrentMetadataHeader = $"Run_{runCounter},LOD_{lod},Bld_{bldLabel},Veh_{vehs}";
+                StartLogging();
 
-                            yield return new WaitForSeconds(m_WarmupDuration);
+                yield return PlayCameraPathRoutine();
 
-                            string bldLabel = (comp == -1) ? "All" : comp.ToString();
-                            m_CurrentMetadataHeader = $"Run_{runCounter},LOD_{lod},Bld_{bldLabel},Veh_{vehs},Rep_{rep}";
-                            StartLogging();
+                StopAndSaveCsv($"Run_{runCounter}_LOD{lod}_Bld{bldLabel}_Veh{vehs}");
 
-                            yield return PlayCameraPathRoutine();
-
-                            StopAndSaveCsv($"Run_{runCounter}_LOD{lod}_Bld{bldLabel}_Veh{vehs}_Rep{rep}");
-
-                            yield return new WaitForSeconds(m_ThermalCooldownDuration);
-                        }
-                    }
-                }
-
-                Debug.Log("[CityViewController] Full Benchmark Matrix complete!");
+                Debug.Log($"[CityViewController] Manual benchmark run {runCounter} complete!");
             }
             finally
             {
@@ -315,31 +305,6 @@ namespace Unity.VRTemplate
                 m_BenchmarkRunning = false;
                 m_ActiveBenchmarkCoroutine = null;
             }
-        }
-
-        IEnumerator WarmupBuildingShadersRoutine(int[] buildingComplexities, int[] lods)
-        {
-            if (m_Objects == null) yield break;
-
-            Debug.Log("[CityViewController] Warming up building shaders/textures...");
-            foreach (int comp in buildingComplexities)
-            {
-                int ci = ComplexityIndex(comp);
-                if (ci < 0 || ci >= 6) continue;
-
-                foreach (int lod in lods)
-                {
-                    int li = lod - 1;
-                    if (li < 0 || li >= 3) continue;
-
-                    GameObject go = m_Objects[ci, li];
-                    if (go == null) continue;
-
-                    go.SetActive(true);
-                    yield return null;
-                }
-            }
-            Debug.Log("[CityViewController] Shader warmup complete.");
         }
 
         CharacterController m_XROriginCC;
@@ -456,8 +421,8 @@ namespace Unity.VRTemplate
             float fps = 1f / Time.unscaledDeltaTime;
 
             float cpuTimeMs = m_CpuFrameTimeRecorder.Valid ? m_CpuFrameTimeRecorder.LastValue * 1e-6f : -1f;
-            float gpuTimeMs = m_GpuFrameTimeRecorder.Valid ? m_GpuFrameTimeRecorder.LastValue * 1e-6f : -1f;
-            float ramMb = m_TotalAllocatedMemoryRecorder.Valid ? m_TotalAllocatedMemoryRecorder.LastValue / (1024f * 1024f) : -1f;
+            float gpuTimeMs = (m_DisplaySubsystem != null && m_DisplaySubsystem.TryGetAppGPUTimeLastFrame(out float xrGpuTimeMs)) ? xrGpuTimeMs : (m_GpuFrameTimeRecorder.Valid ? m_GpuFrameTimeRecorder.LastValue * 1e-6f : -1f);
+            float ramMb = Profiler.GetTotalAllocatedMemoryLong() / (1024f * 1024f);
 
             float tempC = GetDeviceTemperature();
             bool isReprojected = CheckIfReprojected(); //measures user visual comfort
@@ -478,7 +443,7 @@ namespace Unity.VRTemplate
                 {
                     if (!fileExists)
                     {
-                        writer.WriteLine("Run,LOD,BuildingCount,VehicleCount,Repetition,FrameIndex,Timestamp,DeltaTimeMS,FPS,CpuTimeMS,GpuTimeMS,AllocatedRAM_MB,ThermalTempC,IsReprojected");
+                        writer.WriteLine("Run,LOD,BuildingCount,VehicleCount,FrameIndex,Timestamp,DeltaTimeMS,FPS,CpuTimeMS,GpuTimeMS,AllocatedRAM_MB,ThermalTempC,IsReprojected");
                     }
 
                     string[] lines = m_CsvBuffer.ToString().Split('\n');
@@ -574,12 +539,11 @@ namespace Unity.VRTemplate
         public void SetComplexity15000() { SetComplexity(15000); }
         public void SetComplexityAll() { SetComplexity(-1); }
 
+        public void SetVehicleCount0() { SetVehicleCount(0); }
+        public void SetVehicleCount100() { SetVehicleCount(100); }
         public void SetVehicleCount500() { SetVehicleCount(500); }
         public void SetVehicleCount1000() { SetVehicleCount(1000); }
         public void SetVehicleCount1500() { SetVehicleCount(1500); }
-        public void SetVehicleCount2000() { SetVehicleCount(2000); }
-        public void SetVehicleCount2500() { SetVehicleCount(2500); }
-        public void SetVehicleCount3000() { SetVehicleCount(3000); }
 
         void SetVehicleCount(int count)
         {
@@ -646,12 +610,11 @@ namespace Unity.VRTemplate
 
         void HighlightVehicleCount(int count)
         {
+            Highlight(m_Btn0, count == 0);
+            Highlight(m_Btn100, count == 100);
             Highlight(m_Btn500, count == 500);
             Highlight(m_Btn1000, count == 1000);
             Highlight(m_Btn1500, count == 1500);
-            Highlight(m_Btn2000, count == 2000);
-            Highlight(m_Btn2500, count == 2500);
-            Highlight(m_Btn3000, count == 3000);
         }
 
         void Highlight(Button btn, bool active)
