@@ -13,7 +13,7 @@ This project is to determine how much real-world, data-driven urban complexity a
 1. [Prerequisites](#1-prerequisites)
 2. [Using the VR App](#2-using-the-vr-app)
 3. [Agent Behaviours](#3-agent-behaviours)
-4. [Threshhold Compliant](#4-threshold-compliant)
+4. [Benchmark Tutorial](#4-benchmark-tutorial)
 5. [Demo](#5-demo)
 ---
 
@@ -34,38 +34,28 @@ This project is to determine how much real-world, data-driven urban complexity a
 
 ### Controls
 
-| Action | Input                                  |
-|---|----------------------------------------|
-| Walk | Left thumbstick                        |
-| Run | Left grip (hold)                       |
-| Hand menu | **Y button** to show/hide              |
-| Bird-eye fly XZ | Left thumbstick (while in bird-eye)    |
+| Action | Input                                   |
+|---|-----------------------------------------|
+| Walk | Left thumbstick                         |
+| Run | Left grip (hold)                        |
+| Hand menu | **Y button** to show/hide               |
+| Hand menu | **X button** to start/restart benchmark |
+| Bird-eye fly XZ | Left thumbstick (while in bird-eye)     |
 
-![Handmenu](public\handmenu.png)
+![Handmenu](public/handmenu.jpg)
 
 ---
 
 ## 3. Agent Behaviours
 
-<div style="background-color: white; padding: 20px; color: black;">
-    <img src="public\agent-behaviours.png" alt="Agent Behaviours">
-</div>
+![Agent Behaviours](public/agent-behaviours.png)
 
 ---
 
-## 4. Threshold Compliant
-
-|LoD|	Buildings|	Vehicles|	Frames|	% Complaint|	Mean FPS|	Mean CPU util. %|
-|---|-------|-------|-------|-------|-------|------|
-|1	|1,000	|500	|283	|5.65%	|70.16	|103.6%|
-|2	|1,000	|500	|268	|5.60%	|67.86	|109.6%|
-
-No other tested configuration — including LoD3/1,000/500, and every configuration at 2,000+ buildings — produces a single compliant frame
+## 4. Benchmark Tutorial
+Manually select the benchmark settings from the hand menu. then press **X** to start the benchmark. If the benchmark is not compliant, press **X** again to restart the benchmark. The csv file will live in /sdcard/Android/data/com.VRTemplate.RCSVR/files/ of the Meta Quest 3 device. 
 
 ---
 
 ## 5. Demo
-
-### 5.1. Manual testing
-
-### 5.2. Automation testing
+[Watch the demo video](public/rcs-demo-vid.mp4)
