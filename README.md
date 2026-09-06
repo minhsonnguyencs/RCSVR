@@ -53,7 +53,7 @@ This project is to determine how much real-world, data-driven urban complexity a
 ---
 
 ## 4. Benchmark Tutorial
-Manually select the benchmark settings from the hand menu. then press **X** to start the benchmark. If the benchmark is not compliant, press **X** again to restart the benchmark. The csv file will live in /sdcard/Android/data/com.VRTemplate.RCSVR/files/ of the Meta Quest 3 device. 
+Manually select the benchmark settings from the hand menu. then press **X** to start the benchmark. If the benchmark is not compliant, press **X** again to restart the benchmark. The csv file will live in /sdcard/Android/data/com.DefaultCompany.VRTemplate/files/ of the Meta Quest 3 device. 
 
 ---
 
